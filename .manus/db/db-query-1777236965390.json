@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `topics` (`id` int AUTO_INCREMENT NOT NULL, `userId` int NOT NULL, `name` varchar(255) NOT NULL, `description` text, `order` int DEFAULT 0, `createdAt` timestamp NOT NULL DEFAULT (now()), CONSTRAINT `topics_id` PRIMARY KEY(`id`))",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user jYpGAAoqyzNwEAg.42473885bc46 --database AbWyyGSPbngbAmVJAYDbXR --execute CREATE TABLE `topics` (`id` int AUTO_INCREMENT NOT NULL, `userId` int NOT NULL, `name` varchar(255) NOT NULL, `description` text, `order` int DEFAULT 0, `createdAt` timestamp NOT NULL DEFAULT (now()), CONSTRAINT `topics_id` PRIMARY KEY(`id`))",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 141
+}

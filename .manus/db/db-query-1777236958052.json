@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `questions` (`id` int AUTO_INCREMENT NOT NULL, `userId` int NOT NULL, `documentId` int, `topicId` int, `source` enum('extracted','ai_generated') NOT NULL DEFAULT 'ai_generated', `question` text NOT NULL, `optionA` text NOT NULL, `optionB` text NOT NULL, `optionC` text NOT NULL, `optionD` text NOT NULL, `correctOption` enum('A','B','C','D') NOT NULL, `explanation` text, `difficulty` enum('facil','medio','dificil') DEFAULT 'medio', `tags` json, `active` boolean NOT NULL DEFAULT true, `createdAt` timestamp NOT NULL DEFAULT (now()), `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP, CONSTRAINT `questions_id` PRIMARY KEY(`id`))",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user jYpGAAoqyzNwEAg.42473885bc46 --database AbWyyGSPbngbAmVJAYDbXR --execute CREATE TABLE `questions` (`id` int AUTO_INCREMENT NOT NULL, `userId` int NOT NULL, `documentId` int, `topicId` int, `source` enum('extracted','ai_generated') NOT NULL DEFAULT 'ai_generated', `question` text NOT NULL, `optionA` text NOT NULL, `optionB` text NOT NULL, `optionC` text NOT NULL, `optionD` text NOT NULL, `correctOption` enum('A','B','C','D') NOT NULL, `explanation` text, `difficulty` enum('facil','medio','dificil') DEFAULT 'medio', `tags` json, `active` boolean NOT NULL DEFAULT true, `createdAt` timestamp NOT NULL DEFAULT (now()), `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP, CONSTRAINT `questions_id` PRIMARY KEY(`id`))",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 140
+}

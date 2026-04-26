@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `userProgress` (`id` int AUTO_INCREMENT NOT NULL, `userId` int NOT NULL, `topicId` int NOT NULL, `totalAnswered` int NOT NULL DEFAULT 0, `totalCorrect` int NOT NULL DEFAULT 0, `totalWrong` int NOT NULL DEFAULT 0, `lastPracticed` timestamp, `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP, CONSTRAINT `userProgress_id` PRIMARY KEY(`id`))",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user jYpGAAoqyzNwEAg.42473885bc46 --database AbWyyGSPbngbAmVJAYDbXR --execute CREATE TABLE `userProgress` (`id` int AUTO_INCREMENT NOT NULL, `userId` int NOT NULL, `topicId` int NOT NULL, `totalAnswered` int NOT NULL DEFAULT 0, `totalCorrect` int NOT NULL DEFAULT 0, `totalWrong` int NOT NULL DEFAULT 0, `lastPracticed` timestamp, `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP, CONSTRAINT `userProgress_id` PRIMARY KEY(`id`))",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 151
+}

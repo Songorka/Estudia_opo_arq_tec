@@ -1,0 +1,8 @@
+{
+  "query": "CREATE TABLE `practiceSessions` (`id` int AUTO_INCREMENT NOT NULL, `userId` int NOT NULL, `startedAt` timestamp NOT NULL DEFAULT (now()), `finishedAt` timestamp, `totalQuestions` int NOT NULL DEFAULT 0, `correctAnswers` int NOT NULL DEFAULT 0, `wrongAnswers` int NOT NULL DEFAULT 0, `filterTopicId` int, `filterSource` varchar(32), CONSTRAINT `practiceSessions_id` PRIMARY KEY(`id`))",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user jYpGAAoqyzNwEAg.42473885bc46 --database AbWyyGSPbngbAmVJAYDbXR --execute CREATE TABLE `practiceSessions` (`id` int AUTO_INCREMENT NOT NULL, `userId` int NOT NULL, `startedAt` timestamp NOT NULL DEFAULT (now()), `finishedAt` timestamp, `totalQuestions` int NOT NULL DEFAULT 0, `correctAnswers` int NOT NULL DEFAULT 0, `wrongAnswers` int NOT NULL DEFAULT 0, `filterTopicId` int, `filterSource` varchar(32), CONSTRAINT `practiceSessions_id` PRIMARY KEY(`id`))",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1050 (42S01) at line 1: Table 'AbWyyGSPbngbAmVJAYDbXR.practiceSessions' already exists"
+  ]
+}

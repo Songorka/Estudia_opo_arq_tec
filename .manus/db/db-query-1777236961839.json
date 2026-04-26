@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `sessionAnswers` (`id` int AUTO_INCREMENT NOT NULL, `sessionId` int NOT NULL, `questionId` int NOT NULL, `userId` int NOT NULL, `selectedOption` enum('A','B','C','D') NOT NULL, `isCorrect` boolean NOT NULL, `answeredAt` timestamp NOT NULL DEFAULT (now()), CONSTRAINT `sessionAnswers_id` PRIMARY KEY(`id`))",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user jYpGAAoqyzNwEAg.42473885bc46 --database AbWyyGSPbngbAmVJAYDbXR --execute CREATE TABLE `sessionAnswers` (`id` int AUTO_INCREMENT NOT NULL, `sessionId` int NOT NULL, `questionId` int NOT NULL, `userId` int NOT NULL, `selectedOption` enum('A','B','C','D') NOT NULL, `isCorrect` boolean NOT NULL, `answeredAt` timestamp NOT NULL DEFAULT (now()), CONSTRAINT `sessionAnswers_id` PRIMARY KEY(`id`))",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 138
+}
