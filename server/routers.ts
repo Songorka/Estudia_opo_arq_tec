@@ -38,6 +38,7 @@ import {
   getExamAnswers,
   getOverviewStatsByRange,
   getProgressByUserAndRange,
+  getDailyAccuracy,
 } from "./db";
 
 // ── Documents router ───────────────────────────────────────────────
@@ -507,6 +508,13 @@ const statsRouter = router({
       const from = input?.from ? new Date(input.from) : undefined;
       const to = input?.to ? new Date(input.to) : undefined;
       return getProgressByUserAndRange(ctx.user.id, from, to);
+    }),
+  evolution: protectedProcedure
+    .input(z.object({
+      days: z.number().min(7).max(365).default(30),
+    }).optional())
+    .query(async ({ ctx, input }) => {
+      return getDailyAccuracy(ctx.user.id, input?.days ?? 30);
     }),
 });
 

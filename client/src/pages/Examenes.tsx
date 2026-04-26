@@ -4,7 +4,7 @@ import { CheckCircle, XCircle, Minus, ChevronRight, RotateCcw, Trophy, TrendingD
 import { toast } from "sonner";
 import { Link } from "wouter";
 
-type ExamState = "config" | "exam" | "result";
+type ExamState = "config" | "exam" | "result" | "history_result";
 
 type Question = {
   id: number;
@@ -34,6 +34,7 @@ const PENALTY_OPTIONS = [
 export default function Examenes() {
   const [state, setState] = useState<ExamState>("config");
   const [examId, setExamId] = useState<number | null>(null);
+  const [historyExamId, setHistoryExamId] = useState<number | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Map<number, Answer>>(new Map());
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -48,6 +49,16 @@ export default function Examenes() {
     { examSessionId: examId! },
     { enabled: state === "result" && examId !== null }
   );
+
+  const { data: historyResult } = trpc.exam.getResult.useQuery(
+    { examSessionId: historyExamId! },
+    { enabled: state === "history_result" && historyExamId !== null }
+  );
+
+  const handleViewHistory = (id: number) => {
+    setHistoryExamId(id);
+    setState("history_result");
+  };
 
   const [config, setConfig] = useState<{
     title: string;
@@ -126,8 +137,26 @@ export default function Examenes() {
     setState("config");
   };
 
+  if (state === "history_result") {
+    if (!historyResult) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="label-caps">Cargando resultados...</div>
+        </div>
+      );
+    }
+    // Reuse the result screen with historyResult
+    return (
+      <ResultScreen
+        result={historyResult}
+        title={historyResult.session.title ?? "Examen anterior"}
+        onReset={() => { setHistoryExamId(null); setState("config"); }}
+      />
+    );
+  }
+
   if (state === "config") {
-    return <ConfigScreen topics={topics ?? []} config={config} setConfig={setConfig} onStart={handleStart} loading={startExam.isPending} examList={examList ?? []} />;
+    return <ConfigScreen topics={topics ?? []} config={config} setConfig={setConfig} onStart={handleStart} loading={startExam.isPending} examList={examList ?? []} onViewHistory={handleViewHistory} />;
   }
 
   if (state === "exam") {
@@ -274,6 +303,45 @@ export default function Examenes() {
 
   // Result screen
   if (state === "result" && result) {
+    return <ResultScreen result={result} title={result.session.title} onReset={handleReset} />;
+  }
+
+  return null;
+}
+
+// ── Result Screen ──────────────────────────────────────────────────
+
+type ExamResult = {
+  session: {
+    id: number;
+    title: string;
+    totalQuestions: number;
+    correctAnswers: number;
+    wrongAnswers: number;
+    blankAnswers: number;
+    finalScore: string | null;
+    penaltyPerError: string | null;
+    startedAt: Date;
+  };
+  answers: Array<{
+    id: number;
+    question: string;
+    optionA: string;
+    optionB: string;
+    optionC: string;
+    optionD: string;
+    correctOption: string;
+    selectedOption: string;
+    isCorrect: boolean;
+    explanation: string | null;
+    topicName: string | null;
+  }>;
+  topicStats: Array<{ topicId: number | string | null; name: string; correct: number; wrong: number; blank: number; total: number; pct: number }>;
+  bestTopic: { topicId: number | string | null; name: string; correct: number; total: number; pct: number } | null;
+  worstTopic: { topicId: number | string | null; name: string; correct: number; total: number; pct: number } | null;
+};
+
+function ResultScreen({ result, title, onReset }: { result: ExamResult; title: string; onReset: () => void }) {
     const { session, answers: examAnswers, topicStats, bestTopic, worstTopic } = result;
     const total = session.totalQuestions;
     const correct = session.correctAnswers;
@@ -420,7 +488,7 @@ export default function Examenes() {
 
           {/* Actions */}
           <div className="flex gap-3">
-            <button onClick={handleReset} className="btn-industrial">
+            <button onClick={onReset} className="btn-industrial">
               <RotateCcw size={14} />
               Nuevo examen
             </button>
@@ -432,9 +500,6 @@ export default function Examenes() {
         </div>
       </div>
     );
-  }
-
-  return null;
 }
 
 // ── Config Screen ──────────────────────────────────────────────────
@@ -446,6 +511,7 @@ function ConfigScreen({
   onStart,
   loading,
   examList,
+  onViewHistory,
 }: {
   topics: Array<{ id: number; name: string }>;
   config: { title: string; topicIds: number[]; source: string; count: number; penaltyPerError: string };
@@ -453,6 +519,7 @@ function ConfigScreen({
   onStart: () => void;
   loading: boolean;
   examList: Array<{ id: number; title: string; status: string; finalScore: string | null; totalQuestions: number; correctAnswers: number; startedAt: Date }>;
+  onViewHistory: (id: number) => void;
 }) {
   const toggleTopic = (id: number) => {
     setConfig((c) => ({
@@ -606,22 +673,33 @@ function ConfigScreen({
                   return (
                     <div key={exam.id} className="px-5 py-4 border-b border-border last:border-b-0">
                       <div className="flex items-center justify-between mb-1">
-                        <div>
-                          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: "0.85rem", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                        <div className="flex-1 min-w-0">
+                          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: "0.85rem", letterSpacing: "0.05em", textTransform: "uppercase", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {exam.title}
                           </div>
                           <div className="label-caps-sm">{new Date(exam.startedAt).toLocaleDateString("es-ES")}</div>
                         </div>
-                        <div className="text-right">
-                          {exam.status === "finished" ? (
-                            <>
-                              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: "1.1rem", letterSpacing: "-0.01em" }}>
-                                {exam.finalScore ?? "—"}
-                              </div>
-                              <div className="label-caps-sm">{pct}% precisión</div>
-                            </>
-                          ) : (
-                            <span className="badge-source badge-ai">En curso</span>
+                        <div className="flex items-center gap-3 ml-3">
+                          <div className="text-right">
+                            {exam.status === "finished" ? (
+                              <>
+                                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: "1.1rem", letterSpacing: "-0.01em" }}>
+                                  {exam.finalScore ?? "—"}
+                                </div>
+                                <div className="label-caps-sm">{pct}% precisión</div>
+                              </>
+                            ) : (
+                              <span className="badge-source badge-ai">En curso</span>
+                            )}
+                          </div>
+                          {exam.status === "finished" && (
+                            <button
+                              onClick={() => onViewHistory(exam.id)}
+                              className="btn-industrial-outline"
+                              style={{ fontSize: "0.65rem", padding: "0.25rem 0.5rem", flexShrink: 0 }}
+                            >
+                              Ver
+                            </button>
                           )}
                         </div>
                       </div>

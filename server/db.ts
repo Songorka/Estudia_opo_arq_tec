@@ -604,3 +604,54 @@ export async function getProgressByUserAndRange(
     .groupBy(questions.topicId, topics.name)
     .orderBy(sql`COUNT(*) DESC`);
 }
+
+export async function getDailyAccuracy(userId: number, days: number = 30) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  // Aggregate practice answers by day
+  const practiceRows = await db
+    .select({
+      day: sql<string>`DATE(answeredAt) AS day_bucket`,
+      total: sql<number>`COUNT(*) AS total_count`,
+      correct: sql<number>`SUM(CASE WHEN isCorrect = 1 THEN 1 ELSE 0 END) AS correct_count`,
+    })
+    .from(sessionAnswers)
+    .where(and(eq(sessionAnswers.userId, userId), sql`answeredAt >= ${from}`))
+    .groupBy(sql`DATE(answeredAt)`);
+
+  // Aggregate exam answers by day
+  const examRows = await db
+    .select({
+      day: sql<string>`DATE(answeredAt) AS day_bucket`,
+      total: sql<number>`COUNT(*) AS total_count`,
+      correct: sql<number>`SUM(CASE WHEN isCorrect = 1 THEN 1 ELSE 0 END) AS correct_count`,
+    })
+    .from(examAnswers)
+    .where(and(eq(examAnswers.userId, userId), sql`answeredAt >= ${from}`))
+    .groupBy(sql`DATE(answeredAt)`);
+
+  // Merge by day
+  const byDay: Record<string, { total: number; correct: number }> = {};
+  for (const r of practiceRows) {
+    if (!byDay[r.day]) byDay[r.day] = { total: 0, correct: 0 };
+    byDay[r.day].total += Number(r.total);
+    byDay[r.day].correct += Number(r.correct);
+  }
+  for (const r of examRows) {
+    if (!byDay[r.day]) byDay[r.day] = { total: 0, correct: 0 };
+    byDay[r.day].total += Number(r.total);
+    byDay[r.day].correct += Number(r.correct);
+  }
+
+  return Object.entries(byDay)
+    .map(([day, v]) => ({
+      day,
+      total: v.total,
+      correct: v.correct,
+      pct: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0,
+    }))
+    .sort((a, b) => a.day.localeCompare(b.day));
+}

@@ -137,6 +137,39 @@ describe("exam router", () => {
   });
 });
 
+describe("stats.evolution", () => {
+  it("returns an array with day/total/correct/pct fields", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.stats.evolution({ days: 30 });
+    expect(Array.isArray(result)).toBe(true);
+    // If there are entries, they should have the expected shape
+    if (result.length > 0) {
+      expect(result[0]).toHaveProperty("day");
+      expect(result[0]).toHaveProperty("total");
+      expect(result[0]).toHaveProperty("correct");
+      expect(result[0]).toHaveProperty("pct");
+    }
+  });
+
+  it("accepts default params", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.stats.evolution({});
+    expect(Array.isArray(result)).toBe(true);
+  });
+});
+
+describe("exam.getResult", () => {
+  it("throws NOT_FOUND for non-existent exam session", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.exam.getResult({ examSessionId: 99999 })
+    ).rejects.toThrow();
+  });
+});
+
 describe("github.getConfig", () => {
   it("returns default config when no github settings", async () => {
     const { ctx } = createAuthContext();

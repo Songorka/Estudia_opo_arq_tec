@@ -2,6 +2,15 @@ import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
 import { FileText, BookOpen, ChevronRight, BarChart3, Github, Plus, ClipboardList, Calendar } from "lucide-react";
 import { useState, useMemo } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 type DateRange = "all" | "today" | "week" | "month";
 
@@ -31,12 +40,21 @@ const RANGE_LABELS: Record<DateRange, string> = {
   month: "Último mes",
 };
 
+const EVOLUTION_DAYS: Record<DateRange, number> = {
+  all: 90,
+  today: 7,
+  week: 14,
+  month: 30,
+};
+
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const rangeParams = useMemo(() => getDateRange(dateRange), [dateRange]);
+  const evolutionDays = EVOLUTION_DAYS[dateRange];
 
   const { data: stats } = trpc.stats.overview.useQuery(rangeParams);
   const { data: progressData } = trpc.stats.progress.useQuery(rangeParams);
+  const { data: evolutionData } = trpc.stats.evolution.useQuery({ days: evolutionDays });
   const { data: recentDocs } = trpc.documents.list.useQuery({ limit: 3 });
 
   const totalAnswered = stats?.totalAnswered ?? 0;
@@ -45,6 +63,8 @@ export default function Dashboard() {
   const totalQuestions = stats?.totalQuestions ?? 0;
   const totalDocuments = stats?.totalDocuments ?? 0;
   const totalExams = stats?.totalExams ?? 0;
+
+  const hasEvolutionData = evolutionData && evolutionData.length > 1;
 
   return (
     <div className="min-h-screen bg-background">
@@ -89,6 +109,61 @@ export default function Dashboard() {
           <StatBlock label="Documentos" value={totalDocuments} sub="cargados" border />
           <StatBlock label="Exámenes" value={totalExams} sub="realizados" border />
         </div>
+
+        {/* Evolution chart */}
+        {hasEvolutionData && (
+          <div className="border border-border bg-card">
+            <div
+              className="px-5 py-4 border-b border-border flex items-center justify-between"
+              style={{ background: "oklch(0.97 0 0)" }}
+            >
+              <span className="label-caps">Evolución de precisión</span>
+              <span className="label-caps-sm">Últimos {evolutionDays} días</span>
+            </div>
+            <div className="p-5" style={{ height: "200px" }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={evolutionData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.90 0 0)" />
+                  <XAxis
+                    dataKey="day"
+                    tick={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fill: "oklch(0.55 0 0)", letterSpacing: "0.05em" }}
+                    tickFormatter={(v: string) => {
+                      const d = new Date(v);
+                      return `${d.getDate()}/${d.getMonth() + 1}`;
+                    }}
+                  />
+                  <YAxis
+                    domain={[0, 100]}
+                    tick={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fill: "oklch(0.55 0 0)" }}
+                    tickFormatter={(v: number) => `${v}%`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontSize: "0.75rem",
+                      border: "1px solid oklch(0.82 0 0)",
+                      background: "oklch(1 0 0)",
+                      letterSpacing: "0.05em",
+                    }}
+                    formatter={(value: number) => [`${value}%`, "Precisión"]}
+                    labelFormatter={(label: string) => {
+                      const d = new Date(label);
+                      return d.toLocaleDateString("es-ES");
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="pct"
+                    stroke="oklch(0.20 0 0)"
+                    strokeWidth={2}
+                    dot={{ fill: "oklch(0.20 0 0)", r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
 
         {/* Main grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

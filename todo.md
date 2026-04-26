@@ -54,5 +54,5 @@
 - [x] Actualizar endpoint stats.overview para aceptar parámetro de rango de fechas
 
 ## Pendiente (detectado en revisión)
-- [ ] Acceso desde historial de exámenes para reabrir resultados anteriores
-- [ ] Gráfico de evolución temporal de precisión en Dashboard
+- [x] Acceso desde historial de exámenes para reabrir resultados anteriores
+- [x] Gráfico de evolución temporal de precisión en Dashboard
