@@ -2,6 +2,8 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   documents,
+  examAnswers,
+  examSessions,
   InsertDocument,
   InsertPracticeSession,
   InsertQuestion,
@@ -387,4 +389,218 @@ export async function getOverviewStats(userId: number) {
     totalQuestions: Number(qCount?.count ?? 0),
     totalDocuments: Number(dCount?.count ?? 0),
   };
+}
+
+// ── Exam Sessions ──────────────────────────────────────────────────
+
+export async function createExamSession(data: {
+  userId: number;
+  title: string;
+  topicIds: number[];
+  source: string;
+  totalQuestions: number;
+  penaltyPerError: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [result] = await db.insert(examSessions).values({
+    ...data,
+    status: "in_progress",
+  });
+  return (result as { insertId: number }).insertId;
+}
+
+export async function getExamSession(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(examSessions)
+    .where(and(eq(examSessions.id, id), eq(examSessions.userId, userId)))
+    .limit(1);
+  return result[0];
+}
+
+export async function listExamSessions(userId: number, limit = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(examSessions)
+    .where(eq(examSessions.userId, userId))
+    .orderBy(desc(examSessions.startedAt))
+    .limit(limit);
+}
+
+export async function finishExamSession(
+  id: number,
+  userId: number,
+  data: {
+    correctAnswers: number;
+    wrongAnswers: number;
+    blankAnswers: number;
+    rawScore: string;
+    finalScore: string;
+    finishedAt: Date;
+  }
+) {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(examSessions)
+    .set({ ...data, status: "finished" })
+    .where(and(eq(examSessions.id, id), eq(examSessions.userId, userId)));
+}
+
+export async function recordExamAnswer(data: {
+  examSessionId: number;
+  questionId: number;
+  userId: number;
+  selectedOption: "A" | "B" | "C" | "D" | "blank";
+  isCorrect: boolean;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.insert(examAnswers).values(data);
+}
+
+export async function getExamAnswers(examSessionId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: examAnswers.id,
+      questionId: examAnswers.questionId,
+      selectedOption: examAnswers.selectedOption,
+      isCorrect: examAnswers.isCorrect,
+      answeredAt: examAnswers.answeredAt,
+      question: questions.question,
+      optionA: questions.optionA,
+      optionB: questions.optionB,
+      optionC: questions.optionC,
+      optionD: questions.optionD,
+      correctOption: questions.correctOption,
+      explanation: questions.explanation,
+      topicId: questions.topicId,
+      topicName: topics.name,
+      difficulty: questions.difficulty,
+    })
+    .from(examAnswers)
+    .innerJoin(questions, eq(examAnswers.questionId, questions.id))
+    .leftJoin(topics, eq(questions.topicId, topics.id))
+    .where(and(eq(examAnswers.examSessionId, examSessionId), eq(examAnswers.userId, userId)));
+}
+
+// ── Stats with date range ──────────────────────────────────────────
+
+export async function getOverviewStatsByRange(
+  userId: number,
+  fromDate?: Date,
+  toDate?: Date
+) {
+  const db = await getDb();
+  if (!db) return { totalAnswered: 0, totalCorrect: 0, totalQuestions: 0, totalDocuments: 0, totalExams: 0 };
+
+  // Count answers in date range from sessionAnswers
+  const answerConditions = [eq(sessionAnswers.userId, userId)];
+  if (fromDate) answerConditions.push(sql`${sessionAnswers.answeredAt} >= ${fromDate}`);
+  if (toDate) answerConditions.push(sql`${sessionAnswers.answeredAt} <= ${toDate}`);
+
+  const [answerAgg] = await db
+    .select({
+      totalAnswered: sql<number>`COUNT(*)`,
+      totalCorrect: sql<number>`SUM(CASE WHEN ${sessionAnswers.isCorrect} = 1 THEN 1 ELSE 0 END)`,
+    })
+    .from(sessionAnswers)
+    .where(and(...answerConditions));
+
+  // Also count exam answers in range
+  const examConditions = [eq(examAnswers.userId, userId)];
+  if (fromDate) examConditions.push(sql`${examAnswers.answeredAt} >= ${fromDate}`);
+  if (toDate) examConditions.push(sql`${examAnswers.answeredAt} <= ${toDate}`);
+
+  const [examAgg] = await db
+    .select({
+      totalAnswered: sql<number>`COUNT(*)`,
+      totalCorrect: sql<number>`SUM(CASE WHEN ${examAnswers.isCorrect} = 1 THEN 1 ELSE 0 END)`,
+    })
+    .from(examAnswers)
+    .where(and(...examConditions));
+
+  const totalAnswered = Number(answerAgg?.totalAnswered ?? 0) + Number(examAgg?.totalAnswered ?? 0);
+  const totalCorrect = Number(answerAgg?.totalCorrect ?? 0) + Number(examAgg?.totalCorrect ?? 0);
+
+  const [qCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(questions)
+    .where(and(eq(questions.userId, userId), eq(questions.active, true)));
+
+  const [dCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(documents)
+    .where(eq(documents.userId, userId));
+
+  const examSessionConditions = [eq(examSessions.userId, userId), eq(examSessions.status, "finished")];
+  if (fromDate) examSessionConditions.push(sql`${examSessions.finishedAt} >= ${fromDate}`);
+  if (toDate) examSessionConditions.push(sql`${examSessions.finishedAt} <= ${toDate}`);
+
+  const [eCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(examSessions)
+    .where(and(...examSessionConditions));
+
+  return {
+    totalAnswered,
+    totalCorrect,
+    totalQuestions: Number(qCount?.count ?? 0),
+    totalDocuments: Number(dCount?.count ?? 0),
+    totalExams: Number(eCount?.count ?? 0),
+  };
+}
+
+export async function getProgressByUserAndRange(
+  userId: number,
+  fromDate?: Date,
+  toDate?: Date
+) {
+  const db = await getDb();
+  if (!db) return [];
+
+  // If no date filter, use the existing aggregated table
+  if (!fromDate && !toDate) {
+    return db
+      .select({
+        topicId: userProgress.topicId,
+        topicName: topics.name,
+        totalAnswered: userProgress.totalAnswered,
+        totalCorrect: userProgress.totalCorrect,
+        totalWrong: userProgress.totalWrong,
+        lastPracticed: userProgress.lastPracticed,
+      })
+      .from(userProgress)
+      .leftJoin(topics, eq(userProgress.topicId, topics.id))
+      .where(eq(userProgress.userId, userId))
+      .orderBy(desc(userProgress.totalAnswered));
+  }
+
+  // With date filter: aggregate from raw answers
+  const conditions = [eq(sessionAnswers.userId, userId)];
+  if (fromDate) conditions.push(sql`${sessionAnswers.answeredAt} >= ${fromDate}`);
+  if (toDate) conditions.push(sql`${sessionAnswers.answeredAt} <= ${toDate}`);
+
+  return db
+    .select({
+      topicId: questions.topicId,
+      topicName: topics.name,
+      totalAnswered: sql<number>`COUNT(*)`,
+      totalCorrect: sql<number>`SUM(CASE WHEN ${sessionAnswers.isCorrect} = 1 THEN 1 ELSE 0 END)`,
+      totalWrong: sql<number>`SUM(CASE WHEN ${sessionAnswers.isCorrect} = 0 THEN 1 ELSE 0 END)`,
+      lastPracticed: sql<Date>`MAX(${sessionAnswers.answeredAt})`,
+    })
+    .from(sessionAnswers)
+    .innerJoin(questions, eq(sessionAnswers.questionId, questions.id))
+    .leftJoin(topics, eq(questions.topicId, topics.id))
+    .where(and(...conditions))
+    .groupBy(questions.topicId, topics.name)
+    .orderBy(sql`COUNT(*) DESC`);
 }

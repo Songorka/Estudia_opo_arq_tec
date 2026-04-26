@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `examAnswers` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`examSessionId` int NOT NULL,\n\t`questionId` int NOT NULL,\n\t`userId` int NOT NULL,\n\t`selectedOption` enum('A','B','C','D','blank') NOT NULL,\n\t`isCorrect` boolean NOT NULL,\n\t`answeredAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `examAnswers_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user jYpGAAoqyzNwEAg.42473885bc46 --database AbWyyGSPbngbAmVJAYDbXR --execute CREATE TABLE `examAnswers` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`examSessionId` int NOT NULL,\n\t`questionId` int NOT NULL,\n\t`userId` int NOT NULL,\n\t`selectedOption` enum('A','B','C','D','blank') NOT NULL,\n\t`isCorrect` boolean NOT NULL,\n\t`answeredAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `examAnswers_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 133
+}

@@ -1,55 +1,93 @@
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
-import { FileText, BookOpen, ChevronRight, BarChart3, Github, Plus } from "lucide-react";
+import { FileText, BookOpen, ChevronRight, BarChart3, Github, Plus, ClipboardList, Calendar } from "lucide-react";
+import { useState, useMemo } from "react";
+
+type DateRange = "all" | "today" | "week" | "month";
+
+function getDateRange(range: DateRange): { from?: string; to?: string } {
+  if (range === "all") return {};
+  const now = new Date();
+  const to = now.toISOString();
+  if (range === "today") {
+    const from = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    return { from, to };
+  }
+  if (range === "week") {
+    const from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    return { from, to };
+  }
+  if (range === "month") {
+    const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    return { from, to };
+  }
+  return {};
+}
+
+const RANGE_LABELS: Record<DateRange, string> = {
+  all: "Todo el histórico",
+  today: "Hoy",
+  week: "Última semana",
+  month: "Último mes",
+};
 
 export default function Dashboard() {
-  const { data: stats } = trpc.stats.overview.useQuery();
+  const [dateRange, setDateRange] = useState<DateRange>("all");
+  const rangeParams = useMemo(() => getDateRange(dateRange), [dateRange]);
+
+  const { data: stats } = trpc.stats.overview.useQuery(rangeParams);
+  const { data: progressData } = trpc.stats.progress.useQuery(rangeParams);
   const { data: recentDocs } = trpc.documents.list.useQuery({ limit: 3 });
-  const { data: topics } = trpc.topics.list.useQuery();
 
   const totalAnswered = stats?.totalAnswered ?? 0;
   const totalCorrect = stats?.totalCorrect ?? 0;
   const accuracy = totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
   const totalQuestions = stats?.totalQuestions ?? 0;
   const totalDocuments = stats?.totalDocuments ?? 0;
+  const totalExams = stats?.totalExams ?? 0;
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header strip */}
-      <div
-        className="px-6 py-8 border-b border-border"
-        style={{ background: "oklch(1 0 0)" }}
-      >
+      <div className="px-6 py-8 border-b border-border" style={{ background: "oklch(1 0 0)" }}>
         <div className="label-caps mb-2">Panel de control</div>
         <div className="display-lg">Dashboard</div>
       </div>
 
       <div className="p-6 space-y-6">
+        {/* Date range filter */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Calendar size={13} style={{ color: "oklch(0.55 0 0)" }} />
+          <span className="label-caps">Período:</span>
+          {(["all", "today", "week", "month"] as DateRange[]).map((r) => (
+            <button
+              key={r}
+              onClick={() => setDateRange(r)}
+              style={{
+                padding: "0.25rem 0.65rem",
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontWeight: 700,
+                fontSize: "0.70rem",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                border: dateRange === r ? "2px solid oklch(0.10 0 0)" : "1px solid oklch(0.82 0 0)",
+                background: dateRange === r ? "oklch(0.10 0 0)" : "oklch(1 0 0)",
+                color: dateRange === r ? "oklch(0.97 0 0)" : "oklch(0.40 0 0)",
+                cursor: "pointer",
+              }}
+            >
+              {RANGE_LABELS[r]}
+            </button>
+          ))}
+        </div>
+
         {/* Stats row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-0 border border-border">
-          <StatBlock
-            label="Preguntas respondidas"
-            value={totalAnswered}
-            sub="total acumulado"
-          />
-          <StatBlock
-            label="Precisión global"
-            value={`${accuracy}%`}
-            sub={`${totalCorrect} correctas`}
-            border
-          />
-          <StatBlock
-            label="Banco de preguntas"
-            value={totalQuestions}
-            sub="disponibles"
-            border
-          />
-          <StatBlock
-            label="Documentos"
-            value={totalDocuments}
-            sub="cargados"
-            border
-          />
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-0 border border-border">
+          <StatBlock label="Respondidas" value={totalAnswered} sub={RANGE_LABELS[dateRange]} />
+          <StatBlock label="Precisión" value={`${accuracy}%`} sub={`${totalCorrect} correctas`} border />
+          <StatBlock label="Banco" value={totalQuestions} sub="preguntas totales" border />
+          <StatBlock label="Documentos" value={totalDocuments} sub="cargados" border />
+          <StatBlock label="Exámenes" value={totalExams} sub="realizados" border />
         </div>
 
         {/* Main grid */}
@@ -66,6 +104,12 @@ export default function Dashboard() {
                 dark
               />
               <QuickAction
+                href="/examenes"
+                icon={<ClipboardList size={22} strokeWidth={1.8} />}
+                title="Exámenes"
+                desc="Crea un examen con feedback completo"
+              />
+              <QuickAction
                 href="/banco"
                 icon={<BookOpen size={22} strokeWidth={1.8} />}
                 title="Banco de preguntas"
@@ -76,12 +120,6 @@ export default function Dashboard() {
                 icon={<FileText size={22} strokeWidth={1.8} />}
                 title="Documentos"
                 desc="Sube PDFs y extrae preguntas con IA"
-              />
-              <QuickAction
-                href="/progreso"
-                icon={<BarChart3 size={22} strokeWidth={1.8} />}
-                title="Progreso"
-                desc="Estadísticas por bloque temático"
               />
             </div>
           </div>
@@ -180,28 +218,30 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Progress by topic */}
-        {topics && topics.length > 0 && (
+        {/* Progress by topic (filtered) */}
+        {progressData && progressData.length > 0 && (
           <div className="border border-border bg-card">
             <div
               className="px-5 py-4 border-b border-border flex items-center justify-between"
               style={{ background: "oklch(0.97 0 0)" }}
             >
               <span className="label-caps">Progreso por bloque temático</span>
-              <Link href="/progreso">
-                <span className="label-caps-sm" style={{ color: "oklch(0.35 0 0)", cursor: "pointer" }}>
-                  Ver detalle →
-                </span>
-              </Link>
+              <div className="flex items-center gap-3">
+                <span className="label-caps-sm">{RANGE_LABELS[dateRange]}</span>
+                <Link href="/progreso">
+                  <span className="label-caps-sm" style={{ color: "oklch(0.35 0 0)", cursor: "pointer" }}>
+                    Ver detalle →
+                  </span>
+                </Link>
+              </div>
             </div>
             <div className="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {topics.slice(0, 6).map((topic) => {
-                const pct =
-                  topic.totalAnswered > 0
-                    ? Math.round((topic.totalCorrect / topic.totalAnswered) * 100)
-                    : 0;
+              {progressData.slice(0, 6).map((topic) => {
+                const answered = Number(topic.totalAnswered ?? 0);
+                const correct = Number(topic.totalCorrect ?? 0);
+                const pct = answered > 0 ? Math.round((correct / answered) * 100) : 0;
                 return (
-                  <div key={topic.id}>
+                  <div key={String(topic.topicId)}>
                     <div className="flex items-center justify-between mb-1">
                       <span
                         style={{
@@ -217,19 +257,14 @@ export default function Dashboard() {
                           maxWidth: "70%",
                         }}
                       >
-                        {topic.name}
+                        {topic.topicName ?? "Sin tema"}
                       </span>
                       <span className="label-caps-sm">{pct}%</span>
                     </div>
                     <div className="progress-bar-track">
-                      <div
-                        className="progress-bar-fill"
-                        style={{ width: `${pct}%` }}
-                      />
+                      <div className="progress-bar-fill" style={{ width: `${pct}%` }} />
                     </div>
-                    <div className="label-caps-sm mt-1">
-                      {topic.totalAnswered} respondidas
-                    </div>
+                    <div className="label-caps-sm mt-1">{answered} respondidas</div>
                   </div>
                 );
               })}

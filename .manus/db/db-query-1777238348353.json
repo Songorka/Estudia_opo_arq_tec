@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `examSessions` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `userId` int NOT NULL,\n  `title` varchar(255) NOT NULL,\n  `topicIds` json,\n  `source` varchar(32) DEFAULT 'all',\n  `totalQuestions` int NOT NULL DEFAULT 0,\n  `penaltyPerError` varchar(16) DEFAULT '0.25',\n  `correctAnswers` int NOT NULL DEFAULT 0,\n  `wrongAnswers` int NOT NULL DEFAULT 0,\n  `blankAnswers` int NOT NULL DEFAULT 0,\n  `rawScore` varchar(16),\n  `finalScore` varchar(16),\n  `status` varchar(16) NOT NULL DEFAULT 'in_progress',\n  `startedAt` timestamp NOT NULL DEFAULT (now()),\n  `finishedAt` timestamp,\n  CONSTRAINT `examSessions_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user jYpGAAoqyzNwEAg.42473885bc46 --database AbWyyGSPbngbAmVJAYDbXR --execute CREATE TABLE `examSessions` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `userId` int NOT NULL,\n  `title` varchar(255) NOT NULL,\n  `topicIds` json,\n  `source` varchar(32) DEFAULT 'all',\n  `totalQuestions` int NOT NULL DEFAULT 0,\n  `penaltyPerError` varchar(16) DEFAULT '0.25',\n  `correctAnswers` int NOT NULL DEFAULT 0,\n  `wrongAnswers` int NOT NULL DEFAULT 0,\n  `blankAnswers` int NOT NULL DEFAULT 0,\n  `rawScore` varchar(16),\n  `finalScore` varchar(16),\n  `status` varchar(16) NOT NULL DEFAULT 'in_progress',\n  `startedAt` timestamp NOT NULL DEFAULT (now()),\n  `finishedAt` timestamp,\n  CONSTRAINT `examSessions_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 223
+}

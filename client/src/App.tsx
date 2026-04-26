@@ -11,6 +11,7 @@ import Banco from "./pages/Banco";
 import Practica from "./pages/Practica";
 import Progreso from "./pages/Progreso";
 import GithubSync from "./pages/GithubSync";
+import Examenes from "./pages/Examenes";
 
 function Router() {
   return (
@@ -21,6 +22,7 @@ function Router() {
         <Route path="/banco" component={Banco} />
         <Route path="/practica" component={Practica} />
         <Route path="/progreso" component={Progreso} />
+        <Route path="/examenes" component={Examenes} />
         <Route path="/github" component={GithubSync} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />

@@ -131,3 +131,41 @@ export const userProgress = mysqlTable("userProgress", {
 
 export type UserProgress = typeof userProgress.$inferSelect;
 export type InsertUserProgress = typeof userProgress.$inferInsert;
+
+// Sesiones de examen (modo examen, sin feedback inmediato)
+export const examSessions = mysqlTable("examSessions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  // Configuración del examen
+  topicIds: json("topicIds").$type<number[]>().default([]),   // [] = todos los temas
+  source: varchar("source", { length: 32 }).default("all"),  // all | extracted | ai_generated
+  totalQuestions: int("totalQuestions").default(0).notNull(),
+  penaltyPerError: varchar("penaltyPerError", { length: 16 }).default("0.25"), // fracción que resta por error
+  // Resultados
+  correctAnswers: int("correctAnswers").default(0).notNull(),
+  wrongAnswers: int("wrongAnswers").default(0).notNull(),
+  blankAnswers: int("blankAnswers").default(0).notNull(),
+  rawScore: varchar("rawScore", { length: 16 }),    // puntuación bruta (sobre totalQuestions)
+  finalScore: varchar("finalScore", { length: 16 }), // puntuación con penalización
+  status: varchar("status", { length: 16 }).default("in_progress").notNull(),
+  startedAt: timestamp("startedAt").defaultNow().notNull(),
+  finishedAt: timestamp("finishedAt"),
+});
+
+export type ExamSession = typeof examSessions.$inferSelect;
+export type InsertExamSession = typeof examSessions.$inferInsert;
+
+// Respuestas individuales de un examen
+export const examAnswers = mysqlTable("examAnswers", {
+  id: int("id").autoincrement().primaryKey(),
+  examSessionId: int("examSessionId").notNull(),
+  questionId: int("questionId").notNull(),
+  userId: int("userId").notNull(),
+  selectedOption: mysqlEnum("selectedOption", ["A", "B", "C", "D", "blank"]).notNull(),
+  isCorrect: boolean("isCorrect").notNull(),
+  answeredAt: timestamp("answeredAt").defaultNow().notNull(),
+});
+
+export type ExamAnswer = typeof examAnswers.$inferSelect;
+export type InsertExamAnswer = typeof examAnswers.$inferInsert;

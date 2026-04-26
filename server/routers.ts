@@ -30,6 +30,14 @@ import {
   countQuestions,
   getQuestionById,
   updateDocumentGithubPath,
+  createExamSession,
+  getExamSession,
+  listExamSessions,
+  finishExamSession,
+  recordExamAnswer,
+  getExamAnswers,
+  getOverviewStatsByRange,
+  getProgressByUserAndRange,
 } from "./db";
 
 // ── Documents router ───────────────────────────────────────────────
@@ -480,8 +488,165 @@ const practiceRouter = router({
 // ── Stats router ───────────────────────────────────────────────────
 
 const statsRouter = router({
-  overview: protectedProcedure.query(({ ctx }) => getOverviewStats(ctx.user.id)),
-  progress: protectedProcedure.query(({ ctx }) => getProgressByUser(ctx.user.id)),
+  overview: protectedProcedure
+    .input(z.object({
+      from: z.string().optional(), // ISO date string
+      to: z.string().optional(),
+    }).optional())
+    .query(({ ctx, input }) => {
+      const from = input?.from ? new Date(input.from) : undefined;
+      const to = input?.to ? new Date(input.to) : undefined;
+      return getOverviewStatsByRange(ctx.user.id, from, to);
+    }),
+  progress: protectedProcedure
+    .input(z.object({
+      from: z.string().optional(),
+      to: z.string().optional(),
+    }).optional())
+    .query(({ ctx, input }) => {
+      const from = input?.from ? new Date(input.from) : undefined;
+      const to = input?.to ? new Date(input.to) : undefined;
+      return getProgressByUserAndRange(ctx.user.id, from, to);
+    }),
+});
+
+// ── Exam router ────────────────────────────────────────────────────
+
+const examRouter = router({
+  start: protectedProcedure
+    .input(z.object({
+      title: z.string().default("Examen"),
+      topicIds: z.array(z.number()).default([]),
+      source: z.string().default("all"),
+      count: z.number().min(5).max(100).default(20),
+      penaltyPerError: z.string().default("0.25"),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const opts: { topicId?: number; source?: string } = {};
+      if (input.source !== "all") opts.source = input.source;
+
+      let questions: Awaited<ReturnType<typeof getRandomQuestions>> = [];
+
+      if (input.topicIds.length > 0) {
+        // Fetch from each topic and merge
+        for (const topicId of input.topicIds) {
+          const perTopic = Math.ceil(input.count / input.topicIds.length);
+          const qs = await getRandomQuestions(ctx.user.id, perTopic, { ...opts, topicId });
+          questions = [...questions, ...qs];
+        }
+        // Shuffle and trim to exact count
+        questions = questions.sort(() => Math.random() - 0.5).slice(0, input.count);
+      } else {
+        questions = await getRandomQuestions(ctx.user.id, input.count, opts);
+      }
+
+      if (questions.length === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No hay preguntas disponibles con los filtros seleccionados. Genera o extrae preguntas primero.",
+        });
+      }
+
+      const examId = await createExamSession({
+        userId: ctx.user.id,
+        title: input.title,
+        topicIds: input.topicIds,
+        source: input.source,
+        totalQuestions: questions.length,
+        penaltyPerError: input.penaltyPerError,
+      });
+
+      return { examId, questions };
+    }),
+
+  submitAnswer: protectedProcedure
+    .input(z.object({
+      examSessionId: z.number(),
+      questionId: z.number(),
+      selectedOption: z.enum(["A", "B", "C", "D", "blank"]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const question = await getQuestionById(input.questionId, ctx.user.id);
+      if (!question) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const isCorrect = input.selectedOption !== "blank" && question.correctOption === input.selectedOption;
+
+      await recordExamAnswer({
+        examSessionId: input.examSessionId,
+        questionId: input.questionId,
+        userId: ctx.user.id,
+        selectedOption: input.selectedOption,
+        isCorrect,
+      });
+
+      return { success: true };
+    }),
+
+  finish: protectedProcedure
+    .input(z.object({ examSessionId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const session = await getExamSession(input.examSessionId, ctx.user.id);
+      if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const answers = await getExamAnswers(input.examSessionId, ctx.user.id);
+
+      const correct = answers.filter((a) => a.isCorrect).length;
+      const blank = answers.filter((a) => a.selectedOption === "blank").length;
+      const wrong = answers.filter((a) => !a.isCorrect && a.selectedOption !== "blank").length;
+
+      const penalty = parseFloat(session.penaltyPerError ?? "0.25");
+      const rawScore = correct;
+      const finalScore = Math.max(0, correct - wrong * penalty);
+
+      await finishExamSession(input.examSessionId, ctx.user.id, {
+        correctAnswers: correct,
+        wrongAnswers: wrong,
+        blankAnswers: blank,
+        rawScore: rawScore.toFixed(2),
+        finalScore: finalScore.toFixed(2),
+        finishedAt: new Date(),
+      });
+
+      return { success: true };
+    }),
+
+  getResult: protectedProcedure
+    .input(z.object({ examSessionId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const session = await getExamSession(input.examSessionId, ctx.user.id);
+      if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const answers = await getExamAnswers(input.examSessionId, ctx.user.id);
+
+      // Group by topic for per-topic stats
+      const byTopic: Record<string, { name: string; correct: number; wrong: number; blank: number; total: number }> = {};
+      for (const a of answers) {
+        const key = String(a.topicId ?? "sin-tema");
+        if (!byTopic[key]) byTopic[key] = { name: a.topicName ?? "Sin tema", correct: 0, wrong: 0, blank: 0, total: 0 };
+        byTopic[key].total++;
+        if (a.isCorrect) byTopic[key].correct++;
+        else if (a.selectedOption === "blank") byTopic[key].blank++;
+        else byTopic[key].wrong++;
+      }
+
+      const topicStats = Object.entries(byTopic).map(([id, s]) => ({
+        topicId: id,
+        ...s,
+        pct: s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
+      }));
+
+      topicStats.sort((a, b) => a.pct - b.pct);
+
+      return {
+        session,
+        answers,
+        topicStats,
+        bestTopic: topicStats.length > 0 ? topicStats[topicStats.length - 1] : null,
+        worstTopic: topicStats.length > 0 ? topicStats[0] : null,
+      };
+    }),
+
+  list: protectedProcedure.query(({ ctx }) => listExamSessions(ctx.user.id)),
 });
 
 // ── GitHub router ──────────────────────────────────────────────────
@@ -692,6 +857,7 @@ export const appRouter = router({
   questions: questionsRouter,
   practice: practiceRouter,
   stats: statsRouter,
+  exam: examRouter,
   github: githubRouter,
 });
 

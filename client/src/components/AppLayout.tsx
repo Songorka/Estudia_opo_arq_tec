@@ -6,10 +6,10 @@ import {
   FileText,
   BookOpen,
   BarChart3,
-  Settings,
   LogOut,
   Github,
   ChevronRight,
+  ClipboardList,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/documentos", icon: FileText, label: "Documentos" },
   { href: "/banco", icon: BookOpen, label: "Banco de preguntas" },
   { href: "/practica", icon: ChevronRight, label: "Modo práctica" },
+  { href: "/examenes", icon: ClipboardList, label: "Exámenes" },
   { href: "/progreso", icon: BarChart3, label: "Progreso" },
   { href: "/github", icon: Github, label: "GitHub Sync" },
 ];

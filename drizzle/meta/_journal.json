@@ -15,6 +15,13 @@
       "when": 1777236897391,
       "tag": "0001_low_toad",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1777238329588,
+      "tag": "0002_glossy_daimon_hellstrom",
+      "breakpoints": true
     }
   ]
 }

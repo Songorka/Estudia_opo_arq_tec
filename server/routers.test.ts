@@ -90,6 +90,53 @@ describe("auth.me", () => {
   });
 });
 
+describe("stats.overview with date range", () => {
+  it("accepts optional date range parameters", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    // Should not throw when called with date range params
+    const result = await caller.stats.overview({
+      from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      to: new Date().toISOString(),
+    });
+    expect(result).toHaveProperty("totalAnswered");
+    expect(result).toHaveProperty("totalCorrect");
+    expect(result).toHaveProperty("totalQuestions");
+    expect(result).toHaveProperty("totalDocuments");
+    expect(result).toHaveProperty("totalExams");
+  });
+
+  it("accepts empty params for full history", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.stats.overview({});
+    expect(result).toHaveProperty("totalAnswered");
+  });
+});
+
+describe("exam router", () => {
+  it("exam.list returns an array", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.exam.list();
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("exam.start throws NOT_FOUND when no questions available", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.exam.start({
+        title: "Test exam",
+        topicIds: [],
+        source: "all",
+        count: 5,
+        penaltyPerError: "0.25",
+      })
+    ).rejects.toThrow();
+  });
+});
+
 describe("github.getConfig", () => {
   it("returns default config when no github settings", async () => {
     const { ctx } = createAuthContext();

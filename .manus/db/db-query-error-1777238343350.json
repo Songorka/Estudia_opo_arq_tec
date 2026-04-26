@@ -1,0 +1,17 @@
+{
+  "query": "CREATE TABLE `examSessions` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`userId` int NOT NULL,\n\t`title` varchar(255) NOT NULL,\n\t`topicIds` json DEFAULT ('[]'),\n\t`source` varchar(32) DEFAULT 'all',\n\t`totalQuestions` int NOT NULL DEFAULT 0,\n\t`penaltyPerError` varchar(16) DEFAULT '0.25',\n\t`correctAnswers` int NOT NULL DEFAULT 0,\n\t`wrongAnswers` int NOT NULL DEFAULT 0,\n\t`blankAnswers` int NOT NULL DEFAULT 0,\n\t`rawScore` varchar(16),\n\t`finalScore` varchar(16),\n\t`status` enum('in_progress','finished') NOT NULL DEFAULT 'in_progress',\n\t`startedAt` timestamp NOT NULL DEFAULT (now()),\n\t`finishedAt` timestamp,\n\tCONSTRAINT `examSessions_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user jYpGAAoqyzNwEAg.42473885bc46 --database AbWyyGSPbngbAmVJAYDbXR --execute CREATE TABLE `examSessions` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`userId` int NOT NULL,\n\t`title` varchar(255) NOT NULL,\n\t`topicIds` json DEFAULT ('[]'),\n\t`source` varchar(32) DEFAULT 'all',\n\t`totalQuestions` int NOT NULL DEFAULT 0,\n\t`penaltyPerError` varchar(16) DEFAULT '0.25',\n\t`correctAnswers` int NOT NULL DEFAULT 0,\n\t`wrongAnswers` int NOT NULL DEFAULT 0,\n\t`blankAnswers` int NOT NULL DEFAULT 0,\n\t`rawScore` varchar(16),\n\t`finalScore` varchar(16),\n\t`status` enum('in_progress','finished') NOT NULL DEFAULT 'in_progress',\n\t`startedAt` timestamp NOT NULL DEFAULT (now()),\n\t`finishedAt` timestamp,\n\tCONSTRAINT `examSessions_id` PRIMARY KEY(`id`)\n);",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1064 (42000) at line 1: You have an error in your SQL syntax; check the manual that corresponds to your TiDB version for the right syntax to use line 5 column 31 near \"'[]'),",
+    "\t`source` varchar(32) DEFAULT 'all',",
+    "\t`totalQuestions` int NOT NULL DEFAULT 0,",
+    "\t`penaltyPerError` varchar(16) DEFAULT '0.25',",
+    "\t`correctAnswers` int NOT NULL DEFAULT 0,",
+    "\t`wrongAnswers` int NOT NULL DEFAULT 0,",
+    "\t`blankAnswers` int NOT NULL DEFAULT 0,",
+    "\t`rawScore` varchar(16),",
+    "\t`finalScore` varchar(16),",
+    "\t`status` enum('in_progress','finished') NOT NULL DEFAULT 'i"
+  ]
+}

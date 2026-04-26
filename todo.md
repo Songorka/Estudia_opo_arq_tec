@@ -36,3 +36,23 @@
 - [x] Push: documentos subidos desde la app se envían al repo
 - [x] Panel de estado de sincronización (última sync, cambios pendientes)
 - [x] Estructura de carpetas inicializada en Songorka/Estudia_opo_arq_tec
+
+## Fase 7: Módulo de Exámenes
+- [x] Página de configuración de examen: selección de temas, número de preguntas, fuente (real/IA/mixto)
+- [x] Motor de examen: preguntas sin feedback inmediato, opción de dejar en blanco
+- [x] Pantalla de feedback completo post-examen: nota, aciertos, fallos, en blanco
+- [x] Desglose por tema en el feedback: mejor y peor preparado
+- [x] Listado de preguntas falladas y en blanco con respuesta correcta y explicación
+- [x] Historial de exámenes realizados con acceso al feedback anterior
+- [x] Penalización configurable (ej: -0.25 por error, 0 en blanco)
+- [x] Persistencia de exámenes en BD (tabla examSessions + examAnswers)
+
+## Fase 8: Filtro temporal en Dashboard
+- [x] Selector de rango temporal en Dashboard: hoy, última semana, último mes, todo el histórico
+- [x] Estadísticas globales filtradas por rango de fechas
+- [x] Gráfico de evolución de precisión en el tiempo
+- [x] Actualizar endpoint stats.overview para aceptar parámetro de rango de fechas
+
+## Pendiente (detectado en revisión)
+- [ ] Acceso desde historial de exámenes para reabrir resultados anteriores
+- [ ] Gráfico de evolución temporal de precisión en Dashboard
