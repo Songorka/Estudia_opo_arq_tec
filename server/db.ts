@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   documents,
@@ -195,16 +195,25 @@ export async function createQuestions(qs: InsertQuestion[]) {
 
 export async function getQuestions(
   userId: number,
-  opts?: { topicId?: number; source?: string; limit?: number; offset?: number }
+  opts?: { topicId?: number; source?: string; docType?: string; limit?: number; offset?: number }
 ) {
   const db = await getDb();
   if (!db) return [];
   const conditions = [eq(questions.userId, userId), eq(questions.active, true)];
   if (opts?.topicId) conditions.push(eq(questions.topicId, opts.topicId));
   if (opts?.source)
-    conditions.push(
-      eq(questions.source, opts.source as "extracted" | "ai_generated")
-    );
+    conditions.push(eq(questions.source, opts.source as "extracted" | "ai_generated"));
+
+  if (opts?.docType) {
+    // Join with documents to filter by document type
+    const docIds = await db
+      .select({ id: documents.id })
+      .from(documents)
+      .where(and(eq(documents.userId, userId), eq(documents.type, opts.docType as "convocatoria" | "examen" | "tema" | "otro")));
+    const ids = docIds.map((d) => d.id);
+    if (ids.length === 0) return [];
+    conditions.push(inArray(questions.documentId, ids));
+  }
 
   const q = db
     .select()
@@ -219,16 +228,24 @@ export async function getQuestions(
 export async function getRandomQuestions(
   userId: number,
   count: number,
-  opts?: { topicId?: number; source?: string }
+  opts?: { topicId?: number; source?: string; docType?: string }
 ) {
   const db = await getDb();
   if (!db) return [];
   const conditions = [eq(questions.userId, userId), eq(questions.active, true)];
   if (opts?.topicId) conditions.push(eq(questions.topicId, opts.topicId));
   if (opts?.source)
-    conditions.push(
-      eq(questions.source, opts.source as "extracted" | "ai_generated")
-    );
+    conditions.push(eq(questions.source, opts.source as "extracted" | "ai_generated"));
+
+  if (opts?.docType) {
+    const docIds = await db
+      .select({ id: documents.id })
+      .from(documents)
+      .where(and(eq(documents.userId, userId), eq(documents.type, opts.docType as "convocatoria" | "examen" | "tema" | "otro")));
+    const ids = docIds.map((d) => d.id);
+    if (ids.length === 0) return [];
+    conditions.push(inArray(questions.documentId, ids));
+  }
 
   return db
     .select()
@@ -257,6 +274,32 @@ export async function getQuestionById(id: number, userId: number) {
     .where(and(eq(questions.id, id), eq(questions.userId, userId)))
     .limit(1);
   return result[0];
+}
+
+// Archiva (elimina) documentos de tipo convocatoria anteriores del mismo usuario
+export async function archivePreviousConvocatoria(userId: number, exceptDocId: number) {
+  const db = await getDb();
+  if (!db) return;
+  // Obtener todos los documentos de convocatoria excepto el nuevo
+  const prev = await db
+    .select({ id: documents.id })
+    .from(documents)
+    .where(and(eq(documents.userId, userId), eq(documents.type, "convocatoria")))
+    .then((rows) => rows.filter((r) => r.id !== exceptDocId));
+  if (prev.length === 0) return;
+  const ids = prev.map((r) => r.id);
+  await db.delete(documents).where(and(eq(documents.userId, userId), inArray(documents.id, ids)));
+}
+
+// Obtener documentos de un tipo concreto
+export async function getDocumentsByType(userId: number, type: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(documents)
+    .where(and(eq(documents.userId, userId), eq(documents.type, type as "convocatoria" | "examen" | "tema" | "otro")))
+    .orderBy(desc(documents.createdAt));
 }
 
 export async function updateDocumentGithubPath(id: number, githubPath: string, userId: number) {

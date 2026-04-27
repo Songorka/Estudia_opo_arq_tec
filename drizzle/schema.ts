@@ -40,6 +40,7 @@ export const documents = mysqlTable("documents", {
   fileSize: int("fileSize"),
   pageCount: int("pageCount"),
   year: varchar("year", { length: 10 }),
+  topicId: int("topicId"), // bloque temático asociado (solo para tipo 'tema')
   processed: boolean("processed").default(false).notNull(),
   processingError: text("processingError"),
   githubPath: varchar("githubPath", { length: 512 }), // ruta en el repo de GitHub

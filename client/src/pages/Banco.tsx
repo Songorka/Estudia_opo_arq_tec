@@ -9,10 +9,12 @@ export default function Banco() {
   const { data: topics } = trpc.topics.list.useQuery();
   const [filterTopic, setFilterTopic] = useState<number | undefined>();
   const [filterSource, setFilterSource] = useState<string | undefined>();
+  const [filterDocType, setFilterDocType] = useState<string | undefined>();
 
   const { data: questions, isLoading } = trpc.questions.list.useQuery({
     topicId: filterTopic,
     source: filterSource,
+    docType: filterDocType,
     limit: 100,
   });
 
@@ -170,7 +172,7 @@ export default function Banco() {
             ].map((opt) => (
               <button
                 key={String(opt.value)}
-                onClick={() => setFilterSource(opt.value)}
+                onClick={() => { setFilterSource(opt.value); setFilterDocType(undefined); }}
                 style={{
                   fontFamily: "'Barlow Condensed', sans-serif",
                   fontWeight: 700,
@@ -178,9 +180,37 @@ export default function Banco() {
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
                   padding: "0.4rem 0.8rem",
-                  background: filterSource === opt.value ? "oklch(0.10 0 0)" : "transparent",
-                  color: filterSource === opt.value ? "oklch(0.97 0 0)" : "oklch(0.40 0 0)",
-                  border: `1px solid ${filterSource === opt.value ? "oklch(0.10 0 0)" : "oklch(0.82 0 0)"}`,
+                  background: filterSource === opt.value && !filterDocType ? "oklch(0.10 0 0)" : "transparent",
+                  color: filterSource === opt.value && !filterDocType ? "oklch(0.97 0 0)" : "oklch(0.40 0 0)",
+                  border: `1px solid ${filterSource === opt.value && !filterDocType ? "oklch(0.10 0 0)" : "oklch(0.82 0 0)"}`,
+                  cursor: "pointer",
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {/* Filter by document origin type */}
+          <div className="flex gap-1">
+            {[
+              { value: undefined, label: "Origen: todos" },
+              { value: "convocatoria", label: "Convocatoria" },
+              { value: "examen", label: "Examen" },
+              { value: "tema", label: "Tema" },
+            ].map((opt) => (
+              <button
+                key={String(opt.value)}
+                onClick={() => { setFilterDocType(opt.value); if (opt.value) setFilterSource(undefined); }}
+                style={{
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontWeight: 700,
+                  fontSize: "0.72rem",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  padding: "0.4rem 0.8rem",
+                  background: filterDocType === opt.value ? "oklch(0.30 0 0)" : "transparent",
+                  color: filterDocType === opt.value ? "oklch(0.97 0 0)" : "oklch(0.55 0 0)",
+                  border: `1px solid ${filterDocType === opt.value ? "oklch(0.30 0 0)" : "oklch(0.88 0 0)"}`,
                   cursor: "pointer",
                 }}
               >

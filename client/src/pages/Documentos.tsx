@@ -1,19 +1,52 @@
 import { trpc } from "@/lib/trpc";
 import { useState, useRef } from "react";
-import { FileText, Upload, Trash2, Cpu, CheckCircle, AlertCircle, Github } from "lucide-react";
+import {
+  FileText, Upload, Trash2, Cpu, CheckCircle, AlertCircle,
+  Github, BookOpen, ClipboardList, GraduationCap, ChevronDown, ChevronUp, Tag,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { Document } from "../../../drizzle/schema";
 
-const TYPE_LABELS: Record<string, string> = {
-  convocatoria: "Convocatoria",
-  examen: "Examen anterior",
-  tema: "Tema desarrollado",
-  otro: "Otro",
-};
+// ── Helpers ────────────────────────────────────────────────────────
+
+const CATEGORY_META = {
+  convocatoria: {
+    label: "Convocatoria oficial",
+    icon: ClipboardList,
+    description: "El PDF oficial de la convocatoria. Solo puede haber uno activo. Si subes uno nuevo, el anterior queda archivado.",
+    color: "oklch(0.10 0 0)",
+    badgeClass: "badge-source badge-extracted",
+    yearLabel: false,
+    hint: "Sube el BOE o documento oficial de la convocatoria.",
+  },
+  examen: {
+    label: "Exámenes anteriores",
+    icon: BookOpen,
+    description: "PDFs de exámenes reales de convocatorias anteriores. Cada uno puede procesarse con IA para extraer las preguntas al banco.",
+    color: "oklch(0.25 0 0)",
+    badgeClass: "badge-source badge-ai",
+    yearLabel: true,
+    hint: "Identifica el año o convocatoria para organizar mejor las preguntas extraídas.",
+  },
+  tema: {
+    label: "Temas teóricos",
+    icon: GraduationCap,
+    description: "Temas desarrollados que irás añadiendo. Se usarán para generar preguntas y dar feedback contextualizado.",
+    color: "oklch(0.40 0 0)",
+    badgeClass: "badge-source",
+    yearLabel: false,
+    hint: "Organiza cada PDF por bloque temático para facilitar la generación de preguntas.",
+  },
+} as const;
+
+type DocType = keyof typeof CATEGORY_META;
+
+// ── Main page ──────────────────────────────────────────────────────
 
 export default function Documentos() {
   const utils = trpc.useUtils();
   const { data: docs, isLoading } = trpc.documents.list.useQuery();
+
   const getUploadUrl = trpc.documents.getUploadUrl.useMutation();
   const confirmUpload = trpc.documents.confirmUpload.useMutation();
   const deleteMut = trpc.documents.delete.useMutation({
@@ -33,11 +66,98 @@ export default function Documentos() {
     onError: (err) => toast.error(`Error GitHub: ${err.message}`),
   });
 
+  const { data: topics } = trpc.topics.list.useQuery();
+
+  const convocatoriaDocs = docs?.filter((d: Document) => d.type === "convocatoria") ?? [];
+  const examenDocs = docs?.filter((d: Document) => d.type === "examen") ?? [];
+  const temaDocs = docs?.filter((d: Document) => d.type === "tema") ?? [];
+
+  const sharedProps = {
+    getUploadUrl,
+    confirmUpload,
+    onDelete: (id: number) => deleteMut.mutate({ id }),
+    onExtract: (id: number) => {
+      toast.info("Extrayendo preguntas con IA...");
+      extractMut.mutate({ documentId: id });
+    },
+    onPush: (id: number) => pushMut.mutate({ documentId: id }),
+    extractingId: extractMut.isPending ? extractMut.variables?.documentId : undefined,
+    pushingId: pushMut.isPending ? pushMut.variables?.documentId : undefined,
+    invalidate: () => utils.documents.list.invalidate(),
+    topics: topics ?? [],
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="px-6 py-8 border-b border-border" style={{ background: "oklch(1 0 0)" }}>
+        <div className="label-caps mb-2">Gestión de archivos</div>
+        <div className="display-lg">Documentos</div>
+        <div className="label-caps-sm mt-2">
+          {(docs?.length ?? 0)} archivos · {convocatoriaDocs.length} convocatoria · {examenDocs.length} exámenes · {temaDocs.length} temas
+        </div>
+      </div>
+
+      <div className="p-6 space-y-6">
+        {isLoading ? (
+          <div className="p-12 text-center label-caps">Cargando documentos...</div>
+        ) : (
+          <>
+            <CategorySection
+              type="convocatoria"
+              docs={convocatoriaDocs}
+              {...sharedProps}
+            />
+            <CategorySection
+              type="examen"
+              docs={examenDocs}
+              {...sharedProps}
+            />
+            <CategorySection
+              type="tema"
+              docs={temaDocs}
+              {...sharedProps}
+            />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Category Section ───────────────────────────────────────────────
+
+function CategorySection({
+  type,
+  docs,
+  getUploadUrl,
+  confirmUpload,
+  onDelete,
+  onExtract,
+  onPush,
+  extractingId,
+  pushingId,
+  invalidate,
+  topics,
+}: {
+  type: DocType;
+  docs: Document[];
+  getUploadUrl: ReturnType<typeof trpc.documents.getUploadUrl.useMutation>;
+  confirmUpload: ReturnType<typeof trpc.documents.confirmUpload.useMutation>;
+  onDelete: (id: number) => void;
+  onExtract: (id: number) => void;
+  onPush: (id: number) => void;
+  extractingId: number | undefined;
+  pushingId: number | undefined;
+  invalidate: () => void;
+  topics: Array<{ id: number; name: string }>;
+}) {
+  const meta = CATEGORY_META[type];
+  const Icon = meta.icon;
   const [uploading, setUploading] = useState(false);
-  const [form, setForm] = useState<{
-    type: "convocatoria" | "examen" | "tema" | "otro";
-    year: string;
-  }>({ type: "examen", year: "" });
+  const [year, setYear] = useState("");
+  const [selectedTopicId, setSelectedTopicId] = useState<number | undefined>();
+  const [collapsed, setCollapsed] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -52,29 +172,26 @@ export default function Documentos() {
     try {
       const { key, docId } = await getUploadUrl.mutateAsync({
         name: file.name,
-        type: form.type,
-        year: form.year || undefined,
+        type,
+        year: year || undefined,
+        topicId: type === "tema" ? selectedTopicId : undefined,
         fileSize: file.size,
       });
 
-      // Upload directly to storage via server endpoint
       const formData = new FormData();
       formData.append("file", file);
       formData.append("key", key);
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
       if (!res.ok) throw new Error("Upload failed");
 
       await confirmUpload.mutateAsync({ id: docId });
-      await utils.documents.list.invalidate();
-      toast.success("Documento subido correctamente");
-    } catch (err) {
+      await invalidate();
+      toast.success(`${meta.label} subido correctamente`);
+      setYear("");
+      setSelectedTopicId(undefined);
+    } catch {
       toast.error("Error al subir el documento");
-      console.error(err);
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -82,101 +199,100 @@ export default function Documentos() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="px-6 py-8 border-b border-border" style={{ background: "oklch(1 0 0)" }}>
-        <div className="label-caps mb-2">Gestión de archivos</div>
-        <div className="display-lg">Documentos</div>
-      </div>
+    <div className="border border-border bg-card">
+      {/* Category header */}
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="w-full px-5 py-4 border-b border-border flex items-center justify-between"
+        style={{ background: meta.color, cursor: "pointer", border: "none", borderBottom: "1px solid oklch(0.82 0 0)" }}
+      >
+        <div className="flex items-center gap-3">
+          <Icon size={16} style={{ color: type === "convocatoria" ? "oklch(0.75 0 0)" : type === "examen" ? "oklch(0.80 0 0)" : "oklch(0.85 0 0)" }} />
+          <div>
+            <span className="label-caps" style={{ color: type === "convocatoria" ? "oklch(0.70 0 0)" : "oklch(0.75 0 0)" }}>
+              {meta.label}
+            </span>
+            <span
+              className="ml-3"
+              style={{
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontWeight: 900,
+                fontSize: "1rem",
+                color: type === "convocatoria" ? "oklch(0.97 0 0)" : "oklch(0.97 0 0)",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {docs.length}
+            </span>
+          </div>
+        </div>
+        {collapsed
+          ? <ChevronDown size={14} style={{ color: "oklch(0.70 0 0)" }} />
+          : <ChevronUp size={14} style={{ color: "oklch(0.70 0 0)" }} />
+        }
+      </button>
 
-      <div className="p-6 space-y-6">
-        {/* Upload form */}
-        <div className="border border-border bg-card">
-          <div
-            className="px-5 py-4 border-b border-border"
-            style={{ background: "oklch(0.10 0 0)" }}
-          >
-            <div className="flex items-center gap-2">
-              <Upload size={14} style={{ color: "oklch(0.60 0 0)" }} />
-              <span className="label-caps" style={{ color: "oklch(0.60 0 0)" }}>
-                Subir nuevo documento
+      {!collapsed && (
+        <>
+          {/* Description + upload */}
+          <div className="p-5 border-b border-border" style={{ background: "oklch(0.98 0 0)" }}>
+            <p style={{ fontFamily: "'Barlow', sans-serif", fontSize: "0.82rem", color: "oklch(0.40 0 0)", lineHeight: 1.6, marginBottom: "1rem" }}>
+              {meta.description}
+            </p>
+
+            <div className="flex flex-wrap items-end gap-3">
+              {meta.yearLabel && (
+                <div>
+                  <div className="label-caps mb-1">Año / convocatoria</div>
+                  <input
+                    type="text"
+                    placeholder="ej: 2023"
+                    value={year}
+                    onChange={(e) => setYear(e.target.value)}
+                    className="border border-border px-3 py-2 bg-background text-foreground"
+                    style={{ fontFamily: "'Barlow', sans-serif", fontSize: "0.82rem", outline: "none", width: "130px" }}
+                  />
+                </div>
+              )}
+              {type === "tema" && (
+                <div>
+                  <div className="label-caps mb-1">Bloque temático</div>
+                  <select
+                    value={selectedTopicId ?? ""}
+                    onChange={(e) => setSelectedTopicId(e.target.value ? Number(e.target.value) : undefined)}
+                    className="border border-border px-3 py-2 bg-background text-foreground"
+                    style={{ fontFamily: "'Barlow', sans-serif", fontSize: "0.82rem", outline: "none", minWidth: "180px" }}
+                  >
+                    <option value="">Sin bloque asignado</option>
+                    {topics.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <label className="btn-industrial cursor-pointer" style={{ fontSize: "0.72rem" }}>
+                <Upload size={12} />
+                {uploading ? "Subiendo..." : `Subir PDF`}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={handleUpload}
+                  disabled={uploading}
+                />
+              </label>
+              <span className="label-caps-sm" style={{ color: "oklch(0.55 0 0)" }}>
+                {meta.hint}
               </span>
             </div>
           </div>
-          <div className="p-5">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-              <div>
-                <div className="label-caps mb-2">Tipo de documento</div>
-                <select
-                  value={form.type}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      type: e.target.value as typeof form.type,
-                    }))
-                  }
-                  className="w-full border border-border px-3 py-2 bg-background text-foreground"
-                  style={{
-                    fontFamily: "'Barlow', sans-serif",
-                    fontSize: "0.85rem",
-                    outline: "none",
-                  }}
-                >
-                  <option value="convocatoria">Convocatoria</option>
-                  <option value="examen">Examen anterior</option>
-                  <option value="tema">Tema desarrollado</option>
-                  <option value="otro">Otro</option>
-                </select>
-              </div>
-              <div>
-                <div className="label-caps mb-2">Año (opcional)</div>
-                <input
-                  type="text"
-                  placeholder="ej: 2023"
-                  value={form.year}
-                  onChange={(e) => setForm((f) => ({ ...f, year: e.target.value }))}
-                  className="w-full border border-border px-3 py-2 bg-background text-foreground"
-                  style={{ fontFamily: "'Barlow', sans-serif", fontSize: "0.85rem", outline: "none" }}
-                />
-              </div>
-              <div className="flex items-end">
-                <label className="btn-industrial w-full justify-center cursor-pointer">
-                  <Upload size={14} />
-                  {uploading ? "Subiendo..." : "Seleccionar PDF"}
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept=".pdf"
-                    className="hidden"
-                    onChange={handleUpload}
-                    disabled={uploading}
-                  />
-                </label>
-              </div>
-            </div>
-            <div className="label-caps-sm">
-              Los PDFs de exámenes pueden procesarse con IA para extraer preguntas automáticamente.
-            </div>
-          </div>
-        </div>
 
-        {/* Document list */}
-        <div className="border border-border bg-card">
-          <div
-            className="px-5 py-4 border-b border-border flex items-center justify-between"
-            style={{ background: "oklch(0.97 0 0)" }}
-          >
-            <span className="label-caps">Documentos activos</span>
-            <span className="label-caps-sm">{docs?.length ?? 0} archivos</span>
-          </div>
-
-          {isLoading ? (
-            <div className="p-8 text-center label-caps">Cargando...</div>
-          ) : !docs || docs.length === 0 ? (
-            <div className="p-8 text-center">
-              <FileText size={32} style={{ color: "oklch(0.75 0 0)", margin: "0 auto 1rem" }} />
-              <div className="label-caps mb-1">Sin documentos</div>
-              <div className="label-caps-sm">Sube un PDF o sincroniza desde GitHub</div>
+          {/* Document list */}
+          {docs.length === 0 ? (
+            <div className="p-6 text-center">
+              <FileText size={24} style={{ color: "oklch(0.80 0 0)", margin: "0 auto 0.75rem" }} />
+              <div className="label-caps-sm">Sin documentos en esta categoría</div>
             </div>
           ) : (
             <div>
@@ -184,44 +300,50 @@ export default function Documentos() {
                 <DocRow
                   key={doc.id}
                   doc={doc}
-                  onDelete={() => {
-                    deleteMut.mutate({ id: doc.id });
-                  }}
-                  onExtract={() => {
-                    toast.info("Extrayendo preguntas con IA...");
-                    extractMut.mutate({ documentId: doc.id });
-                  }}
-                  onPush={() => pushMut.mutate({ documentId: doc.id })}
-                  extracting={extractMut.isPending && extractMut.variables?.documentId === doc.id}
-                  pushing={pushMut.isPending && pushMut.variables?.documentId === doc.id}
+                  type={type}
+                  onDelete={() => onDelete(doc.id)}
+                  onExtract={() => onExtract(doc.id)}
+                  onPush={() => onPush(doc.id)}
+                  extracting={extractingId === doc.id}
+                  pushing={pushingId === doc.id}
+                  topics={topics}
                 />
               ))}
             </div>
           )}
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
 
+// ── Doc Row ────────────────────────────────────────────────────────
+
 function DocRow({
   doc,
+  type,
   onDelete,
   onExtract,
   onPush,
   extracting,
   pushing,
+  topics,
 }: {
   doc: Document;
+  type: DocType;
   onDelete: () => void;
   onExtract: () => void;
   onPush: () => void;
   extracting: boolean;
   pushing: boolean;
+  topics: Array<{ id: number; name: string }>;
 }) {
+  const meta = CATEGORY_META[type];
+  const topicName = doc.topicId ? topics.find((t) => t.id === doc.topicId)?.name : undefined;
+
   return (
     <div className="px-5 py-4 border-b border-border last:border-b-0 flex items-center gap-4">
-      <FileText size={18} style={{ color: "oklch(0.55 0 0)", flexShrink: 0 }} />
+      <FileText size={16} style={{ color: "oklch(0.60 0 0)", flexShrink: 0 }} />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
@@ -229,23 +351,33 @@ function DocRow({
             style={{
               fontFamily: "'Barlow Condensed', sans-serif",
               fontWeight: 700,
-              fontSize: "0.9rem",
+              fontSize: "0.88rem",
               letterSpacing: "0.03em",
               textTransform: "uppercase",
               color: "oklch(0.15 0 0)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: "280px",
             }}
           >
             {doc.name}
           </span>
-          <span className="badge-source badge-extracted">
-            {TYPE_LABELS[doc.type] ?? doc.type}
+          <span className={meta.badgeClass}>
+            {meta.label}
           </span>
           {doc.year && (
             <span className="badge-source badge-ai">{doc.year}</span>
           )}
+          {topicName && (
+            <span className="badge-source" style={{ display: "flex", alignItems: "center", gap: "3px", background: "oklch(0.92 0 0)", color: "oklch(0.25 0 0)" }}>
+              <Tag size={9} />
+              {topicName}
+            </span>
+          )}
           {doc.githubPath && (
-            <span className="badge-source badge-ai">
-              <Github size={9} style={{ marginRight: "3px" }} />
+            <span className="badge-source badge-ai" style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+              <Github size={9} />
               GitHub
             </span>
           )}
@@ -257,37 +389,50 @@ function DocRow({
             </span>
           ) : doc.processingError ? (
             <span className="flex items-center gap-1 label-caps-sm" style={{ color: "oklch(0.50 0 0)" }}>
-              <AlertCircle size={10} /> Error
+              <AlertCircle size={10} /> Error al procesar
             </span>
           ) : (
-            <span className="label-caps-sm">Sin procesar</span>
+            <span className="label-caps-sm" style={{ color: "oklch(0.60 0 0)" }}>Sin procesar</span>
           )}
           {doc.fileSize && (
-            <span className="label-caps-sm">
-              {(doc.fileSize / 1024).toFixed(0)} KB
-            </span>
+            <span className="label-caps-sm">{(doc.fileSize / 1024).toFixed(0)} KB</span>
           )}
+          <span className="label-caps-sm">{new Date(doc.createdAt).toLocaleDateString("es-ES")}</span>
         </div>
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
-        {!doc.processed && (
+        {/* Extraer con IA: solo para exámenes y temas */}
+        {type !== "convocatoria" && !doc.processed && (
           <button
             onClick={onExtract}
             disabled={extracting}
-            className="btn-industrial text-xs px-3 py-2"
-            style={{ fontSize: "0.68rem" }}
+            className="btn-industrial"
+            style={{ fontSize: "0.65rem", padding: "0.3rem 0.6rem" }}
             title="Extraer preguntas con IA"
           >
             <Cpu size={11} />
             {extracting ? "Procesando..." : "Extraer IA"}
           </button>
         )}
+        {/* Para convocatoria: solo botón de procesar para indexar contenido */}
+        {type === "convocatoria" && !doc.processed && (
+          <button
+            onClick={onExtract}
+            disabled={extracting}
+            className="btn-industrial"
+            style={{ fontSize: "0.65rem", padding: "0.3rem 0.6rem" }}
+            title="Procesar convocatoria con IA"
+          >
+            <Cpu size={11} />
+            {extracting ? "Procesando..." : "Procesar"}
+          </button>
+        )}
         <button
           onClick={onPush}
           disabled={pushing}
-          className="btn-industrial-outline text-xs px-3 py-2"
-          style={{ fontSize: "0.68rem" }}
+          className="btn-industrial-outline"
+          style={{ fontSize: "0.65rem", padding: "0.3rem 0.6rem" }}
           title="Subir a GitHub"
         >
           <Github size={11} />
@@ -296,12 +441,12 @@ function DocRow({
         <button
           onClick={onDelete}
           className="p-2"
-          style={{ color: "oklch(0.60 0 0)", background: "none", border: "none" }}
+          style={{ color: "oklch(0.65 0 0)", background: "none", border: "none", cursor: "pointer" }}
           onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "oklch(0.20 0 0)")}
-          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "oklch(0.60 0 0)")}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "oklch(0.65 0 0)")}
           title="Eliminar"
         >
-          <Trash2 size={15} />
+          <Trash2 size={14} />
         </button>
       </div>
     </div>

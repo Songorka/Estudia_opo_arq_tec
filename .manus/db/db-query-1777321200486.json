@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `documents` ADD `topicId` int;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user jYpGAAoqyzNwEAg.42473885bc46 --database AbWyyGSPbngbAmVJAYDbXR --execute ALTER TABLE `documents` ADD `topicId` int;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 445
+}

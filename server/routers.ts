@@ -39,6 +39,7 @@ import {
   getOverviewStatsByRange,
   getProgressByUserAndRange,
   getDailyAccuracy,
+  archivePreviousConvocatoria,
 } from "./db";
 
 // ── Documents router ───────────────────────────────────────────────
@@ -64,6 +65,7 @@ const documentsRouter = router({
         name: z.string(),
         type: z.enum(["convocatoria", "examen", "tema", "otro"]),
         year: z.string().optional(),
+        topicId: z.number().optional(),
         fileSize: z.number().optional(),
       })
     )
@@ -79,6 +81,7 @@ const documentsRouter = router({
         storageUrl: `/manus-storage/${key}`,
         fileSize: input.fileSize,
         year: input.year,
+        topicId: input.topicId ?? null,
         processed: false,
         githubPath: null,
       });
@@ -90,6 +93,10 @@ const documentsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const doc = await getDocumentById(input.id, ctx.user.id);
       if (!doc) throw new TRPCError({ code: "NOT_FOUND" });
+      // If this is a convocatoria, archive any previous one
+      if (doc.type === "convocatoria") {
+        await archivePreviousConvocatoria(ctx.user.id, doc.id);
+      }
       return { success: true, doc };
     }),
 
@@ -263,6 +270,7 @@ const questionsRouter = router({
       z.object({
         topicId: z.number().optional(),
         source: z.string().optional(),
+        docType: z.string().optional(),
         limit: z.number().optional(),
         offset: z.number().optional(),
       }).optional()
@@ -271,6 +279,7 @@ const questionsRouter = router({
       getQuestions(ctx.user.id, {
         topicId: input?.topicId,
         source: input?.source,
+        docType: input?.docType,
         limit: input?.limit ?? 50,
         offset: input?.offset ?? 0,
       })

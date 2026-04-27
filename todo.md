@@ -56,3 +56,20 @@
 ## Pendiente (detectado en revisión)
 - [x] Acceso desde historial de exámenes para reabrir resultados anteriores
 - [x] Gráfico de evolución temporal de precisión en Dashboard
+
+## Fase 8: Reorganización de Documentos por categoría
+
+- [x] Tres categorías diferenciadas en la UI: Convocatoria, Exámenes, Temas Teóricos
+- [x] Cada categoría con su propio panel de subida y descripción de uso
+- [x] Convocatoria: solo un PDF activo a la vez (reemplaza el anterior)
+- [x] Exámenes: múltiples PDFs, cada uno con año/convocatoria identificable
+- [x] Temas Teóricos: múltiples PDFs organizados por bloque temático
+- [x] Etiqueta visual de categoría en cada documento de la lista
+- [x] Filtro por categoría en el banco de preguntas (fuente: convocatoria / examen / tema)
+- [x] Actualizar el tipo `docType` en la BD para reflejar los tres valores: convocatoria, examen, tema
+
+## Fase 8b: Gaps detectados en revisión
+
+- [x] Backend: al subir convocatoria nueva, archivar/reemplazar la anterior automáticamente
+- [x] Temas teóricos: selector de bloque temático al subir + visualización en lista
+- [x] Banco de preguntas: filtro por tipo de documento origen (convocatoria / examen / tema)
