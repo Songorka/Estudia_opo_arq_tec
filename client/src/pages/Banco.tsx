@@ -31,17 +31,18 @@ export default function Banco() {
       utils.questions.list.invalidate();
       utils.topics.list.invalidate();
       utils.stats.overview.invalidate();
-      setGenForm({ topicName: "", count: 5, difficulty: undefined });
+      setGenForm({ topicId: undefined, topicName: "", count: 5, difficulty: undefined });
     },
     onError: (err) => toast.error(`Error: ${err.message}`),
   });
 
   const [showGenForm, setShowGenForm] = useState(false);
   const [genForm, setGenForm] = useState<{
+    topicId: number | undefined;
     topicName: string;
     count: number;
     difficulty: "facil" | "medio" | "dificil" | undefined;
-  }>({ topicName: "", count: 5, difficulty: undefined });
+  }>({ topicId: undefined, topicName: "", count: 5, difficulty: undefined });
 
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
@@ -83,18 +84,38 @@ export default function Banco() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                 <div className="sm:col-span-1">
                   <div className="label-caps mb-2">Bloque temático</div>
-                  <input
-                    type="text"
-                    placeholder="ej: Estructuras, CTE, Instalaciones..."
-                    value={genForm.topicName}
-                    onChange={(e) => setGenForm((f) => ({ ...f, topicName: e.target.value }))}
-                    list="topics-datalist"
+                  <select
+                    value={genForm.topicId ?? ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "__new__") {
+                        setGenForm((f) => ({ ...f, topicId: undefined, topicName: "" }));
+                      } else if (val) {
+                        const topic = topics?.find((t) => t.id === Number(val));
+                        setGenForm((f) => ({ ...f, topicId: Number(val), topicName: topic?.name ?? "" }));
+                      } else {
+                        setGenForm((f) => ({ ...f, topicId: undefined, topicName: "" }));
+                      }
+                    }}
                     className="w-full border border-border px-3 py-2 bg-background text-foreground"
                     style={{ fontFamily: "'Barlow', sans-serif", fontSize: "0.85rem", outline: "none" }}
-                  />
-                  <datalist id="topics-datalist">
-                    {topics?.map((t) => <option key={t.id} value={t.name} />)}
-                  </datalist>
+                  >
+                    <option value="">— Selecciona un bloque —</option>
+                    {topics?.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                    <option value="__new__">+ Tema libre (texto)</option>
+                  </select>
+                  {genForm.topicId === undefined && (
+                    <input
+                      type="text"
+                      placeholder="Nombre del tema nuevo..."
+                      value={genForm.topicName}
+                      onChange={(e) => setGenForm((f) => ({ ...f, topicName: e.target.value }))}
+                      className="w-full border border-border px-3 py-2 bg-background text-foreground mt-2"
+                      style={{ fontFamily: "'Barlow', sans-serif", fontSize: "0.85rem", outline: "none" }}
+                    />
+                  )}
                 </div>
                 <div>
                   <div className="label-caps mb-2">Número: {genForm.count}</div>
@@ -130,12 +151,16 @@ export default function Banco() {
               </div>
               <button
                 onClick={() => {
-                  if (!genForm.topicName.trim()) {
-                    toast.error("Indica un bloque temático");
+                  const name = genForm.topicId
+                    ? (topics?.find((t) => t.id === genForm.topicId)?.name ?? "")
+                    : genForm.topicName.trim();
+                  if (!name) {
+                    toast.error("Selecciona o escribe un bloque temático");
                     return;
                   }
                   generateMut.mutate({
-                    topicName: genForm.topicName,
+                    topicId: genForm.topicId,  // enviar topicId si existe para evitar duplicados
+                    topicName: name,
                     count: genForm.count,
                     difficulty: genForm.difficulty,
                   });

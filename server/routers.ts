@@ -410,7 +410,8 @@ const questionsRouter = router({
   generate: protectedProcedure
     .input(
       z.object({
-        topicName: z.string(),
+        topicId: z.number().optional(),   // si se pasa, se usa directamente sin crear duplicado
+        topicName: z.string(),             // nombre para el prompt de la IA y para crear topic nuevo si no hay topicId
         count: z.number().min(1).max(20).default(5),
         difficulty: z.enum(["facil", "medio", "dificil"]).optional(),
       })
@@ -498,7 +499,8 @@ Formato JSON:
         }>;
       };
 
-      const topicId = await ensureTopic(ctx.user.id, input.topicName);
+      // Si se pasa topicId explícito, lo usamos directamente (evita duplicados por nombre)
+      const topicId = input.topicId ?? await ensureTopic(ctx.user.id, input.topicName);
       const toInsert = parsed.questions.map((q) => ({
         userId: ctx.user.id,
         documentId: null,

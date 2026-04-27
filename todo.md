@@ -102,3 +102,6 @@
 
 - [x] Frontend: bloquear subida de documentos tipo `tema` si no se selecciona bloque temático
 - [x] Backend: validar que `topicId` es obligatorio en `getUploadUrl` para tipo `tema`
+
+## Bugs fase 11
+- [x] Banco de Preguntas: formulario de generación cambiado a selector de topics existentes para evitar duplicados de temas y problemas de filtrado
