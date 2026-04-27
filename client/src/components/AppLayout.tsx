@@ -10,16 +10,18 @@ import {
   Github,
   ChevronRight,
   ClipboardList,
+  List,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/documentos", icon: FileText, label: "Documentos" },
+  { href: "/temario", icon: List, label: "Temario" },
   { href: "/banco", icon: BookOpen, label: "Banco de preguntas" },
   { href: "/practica", icon: ChevronRight, label: "Modo práctica" },
   { href: "/examenes", icon: ClipboardList, label: "Exámenes" },
   { href: "/progreso", icon: BarChart3, label: "Progreso" },
-  { href: "/github", icon: Github, label: "GitHub Sync" },
+  { href: "/github-sync", icon: Github, label: "GitHub Sync" },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

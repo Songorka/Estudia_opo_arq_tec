@@ -73,3 +73,17 @@
 - [x] Backend: al subir convocatoria nueva, archivar/reemplazar la anterior automáticamente
 - [x] Temas teóricos: selector de bloque temático al subir + visualización en lista
 - [x] Banco de preguntas: filtro por tipo de documento origen (convocatoria / examen / tema)
+
+## Bugs detectados (fase 9)
+
+- [ ] Push a GitHub falla: el token no está configurado o no se valida correctamente antes del push
+- [ ] Extracción de preguntas desde PDF falla: error al llamar a la IA con la URL del archivo
+
+## Fase 9: Bugs + Temario
+
+- [x] Bug push GitHub: mostrar aviso claro cuando no hay token y redirigir a configuración
+- [x] Bug extracción PDF: corregir la URL de acceso al archivo en S3 para la IA
+- [x] Sección Temario: página con listado de todos los temas (topics) de la BD
+- [x] Temario: indicador visual de si el tema tiene documento PDF asociado
+- [x] Temario: acceso rápido a subir documento para temas sin PDF
+- [x] Navegación: añadir Temario al sidebar

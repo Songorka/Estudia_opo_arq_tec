@@ -5,7 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { storagePut } from "./storage";
+import { storagePut, storageGetSignedUrl } from "./storage";
 import {
   createDocument,
   createQuestions,
@@ -107,6 +107,9 @@ const documentsRouter = router({
       if (!doc) throw new TRPCError({ code: "NOT_FOUND" });
 
       try {
+        // Get a proper signed URL so the LLM can access the PDF
+        const signedUrl = await storageGetSignedUrl(doc.storageKey);
+
         const fileContent: Array<{
           type: "file_url";
           file_url: { url: string; mime_type: "application/pdf" };
@@ -114,7 +117,7 @@ const documentsRouter = router({
           {
             type: "file_url",
             file_url: {
-              url: `${process.env.BUILT_IN_FORGE_API_URL?.replace(/\/+$/, "")}/v1/storage/presign/get?path=${encodeURIComponent(doc.storageKey)}`,
+              url: signedUrl,
               mime_type: "application/pdf",
             },
           },
@@ -240,13 +243,25 @@ const topicsRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
     const rawTopics = await getTopics(ctx.user.id);
     const progress = await getProgressByUser(ctx.user.id);
+    const allDocs = await getDocuments(ctx.user.id);
+    // Build a map: topicId -> list of tema documents
+    const docsByTopic = new Map<number, typeof allDocs>();
+    for (const doc of allDocs) {
+      if (doc.type === "tema" && doc.topicId) {
+        if (!docsByTopic.has(doc.topicId)) docsByTopic.set(doc.topicId, []);
+        docsByTopic.get(doc.topicId)!.push(doc);
+      }
+    }
     return rawTopics.map((t) => {
       const p = progress.find((p) => p.topicId === t.id);
+      const docs = docsByTopic.get(t.id) ?? [];
       return {
         ...t,
         totalAnswered: p?.totalAnswered ?? 0,
         totalCorrect: p?.totalCorrect ?? 0,
         totalWrong: p?.totalWrong ?? 0,
+        hasDocument: docs.length > 0,
+        documents: docs.map((d) => ({ id: d.id, name: d.name, processed: d.processed })),
       };
     });
   }),
@@ -674,6 +689,7 @@ const githubRouter = router({
       githubRepo: ctx.user.githubRepo ?? "Songorka/Estudia_opo_arq_tec",
       githubBranch: ctx.user.githubBranch ?? "main",
       lastGithubSync: ctx.user.lastGithubSync,
+      hasToken: !!(ctx.user.githubToken), // never expose the token itself
     };
   }),
 

@@ -61,9 +61,18 @@ export default function Documentos() {
     },
     onError: (err) => toast.error(`Error al extraer: ${err.message}`),
   });
+  const { data: githubConfig } = trpc.github.getConfig.useQuery();
+  const hasGithubToken = !!(githubConfig as any)?.hasToken;
+
   const pushMut = trpc.github.pushToGithub.useMutation({
     onSuccess: (data) => toast.success(`Subido a GitHub: ${data.path}`),
-    onError: (err) => toast.error(`Error GitHub: ${err.message}`),
+    onError: (err) => {
+      if (err.message.includes("token")) {
+        toast.error("Configura el token de GitHub en GitHub Sync → Configuración avanzada");
+      } else {
+        toast.error(`Error GitHub: ${err.message}`);
+      }
+    },
   });
 
   const { data: topics } = trpc.topics.list.useQuery();
@@ -85,6 +94,7 @@ export default function Documentos() {
     pushingId: pushMut.isPending ? pushMut.variables?.documentId : undefined,
     invalidate: () => utils.documents.list.invalidate(),
     topics: topics ?? [],
+    hasGithubToken,
   };
 
   return (
@@ -99,6 +109,24 @@ export default function Documentos() {
       </div>
 
       <div className="p-6 space-y-6">
+        {/* GitHub token warning */}
+        {!hasGithubToken && (
+          <div
+            className="flex items-center gap-3 px-4 py-3 border border-border"
+            style={{ background: "oklch(0.96 0 0)", borderLeft: "3px solid oklch(0.40 0 0)" }}
+          >
+            <span className="label-caps-sm" style={{ color: "oklch(0.30 0 0)" }}>
+              Para usar el botón Push necesitas configurar tu token de GitHub.
+            </span>
+            <a
+              href="/github-sync"
+              className="label-caps-sm ml-auto"
+              style={{ color: "oklch(0.10 0 0)", textDecoration: "underline", whiteSpace: "nowrap" }}
+            >
+              Ir a GitHub Sync →
+            </a>
+          </div>
+        )}
         {isLoading ? (
           <div className="p-12 text-center label-caps">Cargando documentos...</div>
         ) : (
@@ -139,6 +167,7 @@ function CategorySection({
   pushingId,
   invalidate,
   topics,
+  hasGithubToken,
 }: {
   type: DocType;
   docs: Document[];
@@ -151,6 +180,7 @@ function CategorySection({
   pushingId: number | undefined;
   invalidate: () => void;
   topics: Array<{ id: number; name: string }>;
+  hasGithubToken: boolean;
 }) {
   const meta = CATEGORY_META[type];
   const Icon = meta.icon;
@@ -307,6 +337,7 @@ function CategorySection({
                   extracting={extractingId === doc.id}
                   pushing={pushingId === doc.id}
                   topics={topics}
+                  hasGithubToken={hasGithubToken}
                 />
               ))}
             </div>
@@ -328,6 +359,7 @@ function DocRow({
   extracting,
   pushing,
   topics,
+  hasGithubToken,
 }: {
   doc: Document;
   type: DocType;
@@ -337,6 +369,7 @@ function DocRow({
   extracting: boolean;
   pushing: boolean;
   topics: Array<{ id: number; name: string }>;
+  hasGithubToken: boolean;
 }) {
   const meta = CATEGORY_META[type];
   const topicName = doc.topicId ? topics.find((t) => t.id === doc.topicId)?.name : undefined;
@@ -428,16 +461,28 @@ function DocRow({
             {extracting ? "Procesando..." : "Procesar"}
           </button>
         )}
-        <button
-          onClick={onPush}
-          disabled={pushing}
-          className="btn-industrial-outline"
-          style={{ fontSize: "0.65rem", padding: "0.3rem 0.6rem" }}
-          title="Subir a GitHub"
-        >
-          <Github size={11} />
-          {pushing ? "Subiendo..." : "Push"}
-        </button>
+        {!hasGithubToken ? (
+          <a
+            href="/github-sync"
+            className="btn-industrial-outline"
+            style={{ fontSize: "0.65rem", padding: "0.3rem 0.6rem", display: "flex", alignItems: "center", gap: "4px", color: "oklch(0.55 0 0)" }}
+            title="Configura el token de GitHub para hacer push"
+          >
+            <Github size={11} />
+            Push
+          </a>
+        ) : (
+          <button
+            onClick={onPush}
+            disabled={pushing}
+            className="btn-industrial-outline"
+            style={{ fontSize: "0.65rem", padding: "0.3rem 0.6rem" }}
+            title="Subir a GitHub"
+          >
+            <Github size={11} />
+            {pushing ? "Subiendo..." : "Push"}
+          </button>
+        )}
         <button
           onClick={onDelete}
           className="p-2"
