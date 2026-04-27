@@ -110,6 +110,13 @@ const documentsRouter = router({
       if (!doc) throw new TRPCError({ code: "NOT_FOUND" });
 
       try {
+        // Validate that the document has a valid storage key
+        if (!doc.storageKey || doc.storageKey.trim() === "") {
+          throw new Error("El documento no tiene archivo asociado. Por favor, elimine el documento y vúelvalo a subir.");
+        }
+
+        console.log("[extractQuestions] doc.id:", doc.id, "doc.type:", doc.type, "storageKey:", doc.storageKey);
+        
         // Get a proper signed URL so the LLM can access the PDF
         const signedUrl = await storageGetSignedUrl(doc.storageKey);
 
@@ -125,60 +132,86 @@ const documentsRouter = router({
 
         // ── Step 1: If this is a convocatoria, extract the list of topics first ──
         if (doc.type === "convocatoria") {
-          const topicsResponse = await invokeLLM({
-            messages: [
-              {
-                role: "system",
-                content: `Eres un experto en oposiciones de Arquitecto Técnico en España.
+          console.log("[extractQuestions] Processing convocatoria, signed URL obtained:", signedUrl.substring(0, 80));
+          
+          let topicsResponse: any;
+          try {
+            topicsResponse = await invokeLLM({
+              messages: [
+                {
+                  role: "system",
+                  content: `Eres un experto en oposiciones de Arquitecto Técnico en España.
 Analiza esta convocatoria oficial y extrae la lista completa de temas del temario.
-Devuelve ÚNICAMENTE un JSON válido con este esquema:
+Devuelve ÚnicAMENTE un JSON válido con este esquema:
 {
   "topics": [
     { "name": "nombre del tema", "description": "descripción breve del contenido" }
   ]
 }
 Extrae TODOS los temas que aparezcan en el programa o temario oficial. Normaliza los nombres (sin números de tema, solo el nombre del bloque).`,
-              },
-              { role: "user", content: fileContent },
-            ],
-            response_format: {
-              type: "json_schema",
-              json_schema: {
-                name: "topics_list",
-                strict: true,
-                schema: {
-                  type: "object",
-                  properties: {
-                    topics: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          name: { type: "string" },
-                          description: { type: "string" },
+                },
+                { role: "user", content: fileContent },
+              ],
+              response_format: {
+                type: "json_schema",
+                json_schema: {
+                  name: "topics_list",
+                  strict: true,
+                  schema: {
+                    type: "object",
+                    properties: {
+                      topics: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            name: { type: "string" },
+                            description: { type: "string" },
+                          },
+                          required: ["name", "description"],
+                          additionalProperties: false,
                         },
-                        required: ["name", "description"],
-                        additionalProperties: false,
                       },
                     },
+                    required: ["topics"],
+                    additionalProperties: false,
                   },
-                  required: ["topics"],
-                  additionalProperties: false,
                 },
               },
-            },
-          });
+            });
+          } catch (llmErr) {
+            console.error("[extractQuestions] LLM call failed:", llmErr);
+            throw new Error(`Error al llamar a la IA: ${llmErr instanceof Error ? llmErr.message : String(llmErr)}`);
+          }
 
-          const topicsContent = topicsResponse.choices[0]?.message?.content;
-          if (topicsContent) {
-            const parsedTopics = JSON.parse(
-              typeof topicsContent === "string" ? topicsContent : JSON.stringify(topicsContent)
-            ) as { topics: Array<{ name: string; description: string }> };
+          console.log("[extractQuestions] LLM response keys:", Object.keys(topicsResponse || {}));
+          
+          // Handle both possible response shapes
+          const rawContent = topicsResponse?.choices?.[0]?.message?.content 
+            ?? topicsResponse?.content 
+            ?? topicsResponse?.message?.content
+            ?? topicsResponse?.text;
+          
+          console.log("[extractQuestions] Raw content type:", typeof rawContent, "value snippet:", String(rawContent).substring(0, 200));
 
-            // Create topics that don't exist yet
-            for (const t of parsedTopics.topics) {
-              await ensureTopic(ctx.user.id, t.name, t.description);
+          if (rawContent) {
+            try {
+              const contentStr = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
+              const parsedTopics = JSON.parse(contentStr) as { topics: Array<{ name: string; description: string }> };
+              console.log("[extractQuestions] Topics parsed:", parsedTopics.topics?.length);
+              
+              if (Array.isArray(parsedTopics.topics)) {
+                for (const t of parsedTopics.topics) {
+                  if (t.name) await ensureTopic(ctx.user.id, t.name, t.description);
+                }
+              }
+            } catch (parseErr) {
+              console.error("[extractQuestions] JSON parse error:", parseErr, "raw:", String(rawContent).substring(0, 500));
+              throw new Error(`Error al parsear respuesta de la IA: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`);
             }
+          } else {
+            console.error("[extractQuestions] Empty LLM response. Full response:", JSON.stringify(topicsResponse).substring(0, 500));
+            throw new Error("La IA no devolvio contenido. Verifica que el PDF es accesible y contiene texto.");
           }
         }
 

@@ -435,7 +435,7 @@ function DocRow({
         <div className="flex items-center gap-3 mt-1">
           {doc.processed ? (
             <span className="flex items-center gap-1 label-caps-sm" style={{ color: "oklch(0.30 0 0)" }}>
-              <CheckCircle size={10} /> Procesado
+              <CheckCircle size={10} /> {type === "convocatoria" ? "Temario extraído" : "Procesado"}
             </span>
           ) : doc.processingError ? (
             <span className="flex items-center gap-1 label-caps-sm" style={{ color: "oklch(0.50 0 0)" }}>
@@ -465,17 +465,17 @@ function DocRow({
             {extracting ? "Procesando..." : "Extraer IA"}
           </button>
         )}
-        {/* Para convocatoria: solo botón de procesar para indexar contenido */}
+        {/* Para convocatoria: extraer el temario oficial */}
         {type === "convocatoria" && !doc.processed && (
           <button
             onClick={onExtract}
             disabled={extracting}
             className="btn-industrial"
             style={{ fontSize: "0.65rem", padding: "0.3rem 0.6rem" }}
-            title="Procesar convocatoria con IA"
+            title="La IA analiza la convocatoria y crea los temas del Temario"
           >
             <Cpu size={11} />
-            {extracting ? "Procesando..." : "Procesar"}
+            {extracting ? "Extrayendo temario..." : "Extraer Temario"}
           </button>
         )}
         {!hasGithubToken ? (
