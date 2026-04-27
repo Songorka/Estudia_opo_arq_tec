@@ -1,20 +1,23 @@
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
-import { Trash2, Cpu, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2, Cpu, Plus, ChevronDown, ChevronUp, Flag, FlagOff } from "lucide-react";
 import { toast } from "sonner";
 import type { Question } from "../../../drizzle/schema";
+import TopicSelector from "@/components/TopicSelector";
 
 export default function Banco() {
   const utils = trpc.useUtils();
-  const { data: topics } = trpc.topics.list.useQuery();
+  const { data: topics } = trpc.questions.topicsWithCounts.useQuery();
   const [filterTopic, setFilterTopic] = useState<number | undefined>();
   const [filterSource, setFilterSource] = useState<string | undefined>();
   const [filterDocType, setFilterDocType] = useState<string | undefined>();
+  const [showReview, setShowReview] = useState(false);
 
   const { data: questions, isLoading } = trpc.questions.list.useQuery({
     topicId: filterTopic,
     source: filterSource,
     docType: filterDocType,
+    reviewOnly: showReview || undefined,
     limit: 100,
   });
 
@@ -22,6 +25,12 @@ export default function Banco() {
     onSuccess: () => {
       utils.questions.list.invalidate();
       utils.stats.overview.invalidate();
+    },
+  });
+
+  const reviewMut = trpc.questions.setReviewFlag.useMutation({
+    onSuccess: () => {
+      utils.questions.list.invalidate();
     },
   });
 
@@ -33,7 +42,12 @@ export default function Banco() {
       utils.stats.overview.invalidate();
       setGenForm({ topicId: undefined, topicName: "", count: 5, difficulty: undefined });
     },
-    onError: (err) => toast.error(`Error: ${err.message}`),
+    onError: (err) => {
+      const code = err.data?.code ?? 'UNKNOWN';
+      const msg = err.message || 'Error desconocido';
+      console.error('[generate] error:', code, msg, err);
+      toast.error(`[${code}] ${msg}`, { duration: 8000 });
+    },
   });
 
   const [showGenForm, setShowGenForm] = useState(false);
@@ -48,7 +62,6 @@ export default function Banco() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <div className="px-6 py-8 border-b border-border" style={{ background: "oklch(1 0 0)" }}>
         <div className="label-caps mb-2">Preguntas tipo test</div>
         <div className="display-lg">Banco de preguntas</div>
@@ -60,11 +73,7 @@ export default function Banco() {
           <button
             onClick={() => setShowGenForm(!showGenForm)}
             className="w-full px-5 py-4 flex items-center justify-between"
-            style={{
-              background: "oklch(0.10 0 0)",
-              border: "none",
-              cursor: "pointer",
-            }}
+            style={{ background: "oklch(0.10 0 0)", border: "none", cursor: "pointer" }}
           >
             <div className="flex items-center gap-2">
               <Cpu size={14} style={{ color: "oklch(0.60 0 0)" }} />
@@ -72,44 +81,30 @@ export default function Banco() {
                 Generar preguntas con IA
               </span>
             </div>
-            {showGenForm ? (
-              <ChevronUp size={14} style={{ color: "oklch(0.50 0 0)" }} />
-            ) : (
-              <ChevronDown size={14} style={{ color: "oklch(0.50 0 0)" }} />
-            )}
+            {showGenForm
+              ? <ChevronUp size={14} style={{ color: "oklch(0.50 0 0)" }} />
+              : <ChevronDown size={14} style={{ color: "oklch(0.50 0 0)" }} />}
           </button>
 
           {showGenForm && (
             <div className="p-5 border-t border-border">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                 <div className="sm:col-span-1">
-                  <div className="label-caps mb-2">Bloque temático</div>
-                  <select
-                    value={genForm.topicId ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === "__new__") {
-                        setGenForm((f) => ({ ...f, topicId: undefined, topicName: "" }));
-                      } else if (val) {
-                        const topic = topics?.find((t) => t.id === Number(val));
-                        setGenForm((f) => ({ ...f, topicId: Number(val), topicName: topic?.name ?? "" }));
-                      } else {
-                        setGenForm((f) => ({ ...f, topicId: undefined, topicName: "" }));
-                      }
+                  <div className="label-caps mb-2">Bloque tematico</div>
+                  <TopicSelector
+                    mode="single"
+                    topics={topics ?? []}
+                    value={genForm.topicId}
+                    onChange={(id) => {
+                      const topic = (topics ?? []).find((t) => t.id === id);
+                      setGenForm((f) => ({ ...f, topicId: id, topicName: topic?.name ?? "" }));
                     }}
-                    className="w-full border border-border px-3 py-2 bg-background text-foreground"
-                    style={{ fontFamily: "'Barlow', sans-serif", fontSize: "0.85rem", outline: "none" }}
-                  >
-                    <option value="">— Selecciona un bloque —</option>
-                    {topics?.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                    <option value="__new__">+ Tema libre (texto)</option>
-                  </select>
+                    placeholder="Selecciona un bloque"
+                  />
                   {genForm.topicId === undefined && (
                     <input
                       type="text"
-                      placeholder="Nombre del tema nuevo..."
+                      placeholder="O escribe un tema nuevo..."
                       value={genForm.topicName}
                       onChange={(e) => setGenForm((f) => ({ ...f, topicName: e.target.value }))}
                       className="w-full border border-border px-3 py-2 bg-background text-foreground mt-2"
@@ -118,12 +113,9 @@ export default function Banco() {
                   )}
                 </div>
                 <div>
-                  <div className="label-caps mb-2">Número: {genForm.count}</div>
+                  <div className="label-caps mb-2">Numero: {genForm.count}</div>
                   <input
-                    type="range"
-                    min={1}
-                    max={20}
-                    value={genForm.count}
+                    type="range" min={1} max={20} value={genForm.count}
                     onChange={(e) => setGenForm((f) => ({ ...f, count: Number(e.target.value) }))}
                     className="w-full mt-2"
                     style={{ accentColor: "oklch(0.10 0 0)" }}
@@ -133,37 +125,24 @@ export default function Banco() {
                   <div className="label-caps mb-2">Dificultad</div>
                   <select
                     value={genForm.difficulty ?? ""}
-                    onChange={(e) =>
-                      setGenForm((f) => ({
-                        ...f,
-                        difficulty: (e.target.value || undefined) as typeof genForm.difficulty,
-                      }))
-                    }
+                    onChange={(e) => setGenForm((f) => ({ ...f, difficulty: (e.target.value || undefined) as typeof genForm.difficulty }))}
                     className="w-full border border-border px-3 py-2 bg-background text-foreground"
                     style={{ fontFamily: "'Barlow', sans-serif", fontSize: "0.85rem", outline: "none" }}
                   >
                     <option value="">Mixta</option>
-                    <option value="facil">Fácil</option>
+                    <option value="facil">Facil</option>
                     <option value="medio">Medio</option>
-                    <option value="dificil">Difícil</option>
+                    <option value="dificil">Dificil</option>
                   </select>
                 </div>
               </div>
               <button
                 onClick={() => {
                   const name = genForm.topicId
-                    ? (topics?.find((t) => t.id === genForm.topicId)?.name ?? "")
+                    ? ((topics ?? []).find((t) => t.id === genForm.topicId)?.name ?? "")
                     : genForm.topicName.trim();
-                  if (!name) {
-                    toast.error("Selecciona o escribe un bloque temático");
-                    return;
-                  }
-                  generateMut.mutate({
-                    topicId: genForm.topicId,  // enviar topicId si existe para evitar duplicados
-                    topicName: name,
-                    count: genForm.count,
-                    difficulty: genForm.difficulty,
-                  });
+                  if (!name) { toast.error("Selecciona o escribe un bloque tematico"); return; }
+                  generateMut.mutate({ topicId: genForm.topicId, topicName: name, count: genForm.count, difficulty: genForm.difficulty });
                 }}
                 disabled={generateMut.isPending}
                 className="btn-industrial"
@@ -178,74 +157,50 @@ export default function Banco() {
         {/* Filters */}
         <div className="flex flex-wrap gap-3 items-center">
           <div className="label-caps">Filtrar:</div>
-          <select
-            value={filterTopic ?? ""}
-            onChange={(e) => setFilterTopic(e.target.value ? Number(e.target.value) : undefined)}
-            className="border border-border px-3 py-2 bg-background text-foreground"
-            style={{ fontFamily: "'Barlow', sans-serif", fontSize: "0.8rem", outline: "none" }}
-          >
-            <option value="">Todos los bloques</option>
-            {topics?.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
+          <div style={{ minWidth: "200px", maxWidth: "280px" }}>
+            <TopicSelector
+              mode="single"
+              topics={topics ?? []}
+              value={filterTopic}
+              onChange={setFilterTopic}
+              placeholder="Todos los bloques"
+            />
+          </div>
           <div className="flex gap-1">
             {[
               { value: undefined, label: "Todas" },
-              { value: "extracted", label: "Exámenes" },
+              { value: "extracted", label: "Examenes" },
               { value: "ai_generated", label: "IA" },
             ].map((opt) => (
               <button
                 key={String(opt.value)}
-                onClick={() => { setFilterSource(opt.value); setFilterDocType(undefined); }}
+                onClick={() => { setFilterSource(opt.value); setFilterDocType(undefined); setShowReview(false); }}
                 style={{
-                  fontFamily: "'Barlow Condensed', sans-serif",
-                  fontWeight: 700,
-                  fontSize: "0.72rem",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  padding: "0.4rem 0.8rem",
-                  background: filterSource === opt.value && !filterDocType ? "oklch(0.10 0 0)" : "transparent",
-                  color: filterSource === opt.value && !filterDocType ? "oklch(0.97 0 0)" : "oklch(0.40 0 0)",
-                  border: `1px solid ${filterSource === opt.value && !filterDocType ? "oklch(0.10 0 0)" : "oklch(0.82 0 0)"}`,
+                  fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: "0.72rem",
+                  letterSpacing: "0.1em", textTransform: "uppercase", padding: "0.4rem 0.8rem",
+                  background: filterSource === opt.value && !filterDocType && !showReview ? "oklch(0.10 0 0)" : "transparent",
+                  color: filterSource === opt.value && !filterDocType && !showReview ? "oklch(0.97 0 0)" : "oklch(0.40 0 0)",
+                  border: `1px solid ${filterSource === opt.value && !filterDocType && !showReview ? "oklch(0.10 0 0)" : "oklch(0.82 0 0)"}`,
                   cursor: "pointer",
                 }}
-              >
-                {opt.label}
-              </button>
+              >{opt.label}</button>
             ))}
           </div>
-          {/* Filter by document origin type */}
-          <div className="flex gap-1">
-            {[
-              { value: undefined, label: "Origen: todos" },
-              { value: "convocatoria", label: "Convocatoria" },
-              { value: "examen", label: "Examen" },
-              { value: "tema", label: "Tema" },
-            ].map((opt) => (
-              <button
-                key={String(opt.value)}
-                onClick={() => { setFilterDocType(opt.value); if (opt.value) setFilterSource(undefined); }}
-                style={{
-                  fontFamily: "'Barlow Condensed', sans-serif",
-                  fontWeight: 700,
-                  fontSize: "0.72rem",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  padding: "0.4rem 0.8rem",
-                  background: filterDocType === opt.value ? "oklch(0.30 0 0)" : "transparent",
-                  color: filterDocType === opt.value ? "oklch(0.97 0 0)" : "oklch(0.55 0 0)",
-                  border: `1px solid ${filterDocType === opt.value ? "oklch(0.30 0 0)" : "oklch(0.88 0 0)"}`,
-                  cursor: "pointer",
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-          <span className="label-caps-sm ml-auto">
-            {questions?.length ?? 0} preguntas
-          </span>
+          <button
+            onClick={() => { setShowReview(!showReview); setFilterSource(undefined); setFilterDocType(undefined); }}
+            style={{
+              fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: "0.72rem",
+              letterSpacing: "0.1em", textTransform: "uppercase", padding: "0.4rem 0.8rem",
+              background: showReview ? "oklch(0.35 0 0)" : "transparent",
+              color: showReview ? "oklch(0.97 0 0)" : "oklch(0.50 0 0)",
+              border: `1px solid ${showReview ? "oklch(0.35 0 0)" : "oklch(0.82 0 0)"}`,
+              cursor: "pointer", display: "flex", alignItems: "center", gap: "0.3rem",
+            }}
+          >
+            <Flag size={11} />
+            En revision
+          </button>
+          <span className="label-caps-sm ml-auto">{questions?.length ?? 0} preguntas</span>
         </div>
 
         {/* Question list */}
@@ -254,8 +209,10 @@ export default function Banco() {
             <div className="p-8 text-center label-caps">Cargando...</div>
           ) : !questions || questions.length === 0 ? (
             <div className="p-8 text-center">
-              <div className="label-caps mb-1">Sin preguntas</div>
-              <div className="label-caps-sm">Sube un examen PDF o genera preguntas con IA</div>
+              <div className="label-caps mb-1">{showReview ? "Sin preguntas en revision" : "Sin preguntas"}</div>
+              <div className="label-caps-sm">
+                {showReview ? "Marca preguntas durante la practica para revisarlas aqui" : "Sube un examen PDF o genera preguntas con IA"}
+              </div>
             </div>
           ) : (
             questions.map((q: Question) => (
@@ -265,6 +222,7 @@ export default function Banco() {
                 expanded={expandedId === q.id}
                 onToggle={() => setExpandedId(expandedId === q.id ? null : q.id)}
                 onDelete={() => deleteMut.mutate({ id: q.id })}
+                onToggleReview={() => reviewMut.mutate({ id: q.id, flag: !q.reviewFlag })}
               />
             ))
           )}
@@ -275,15 +233,9 @@ export default function Banco() {
 }
 
 function QuestionRow({
-  question,
-  expanded,
-  onToggle,
-  onDelete,
+  question, expanded, onToggle, onDelete, onToggleReview,
 }: {
-  question: Question;
-  expanded: boolean;
-  onToggle: () => void;
-  onDelete: () => void;
+  question: Question; expanded: boolean; onToggle: () => void; onDelete: () => void; onToggleReview: () => void;
 }) {
   const opts = [
     { key: "A", text: question.optionA },
@@ -297,41 +249,46 @@ function QuestionRow({
       <div
         className="px-5 py-4 flex items-start gap-4 cursor-pointer"
         onClick={onToggle}
-        style={{ background: expanded ? "oklch(0.97 0 0)" : "oklch(1 0 0)" }}
+        style={{ background: expanded ? "oklch(0.97 0 0)" : question.reviewFlag ? "oklch(0.975 0 0)" : "oklch(1 0 0)" }}
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span
-              className={`badge-source ${question.source === "extracted" ? "badge-extracted" : "badge-ai"}`}
-            >
+            <span className={`badge-source ${question.source === "extracted" ? "badge-extracted" : "badge-ai"}`}>
               {question.source === "extracted" ? "Examen" : "IA"}
             </span>
-            {question.difficulty && (
-              <span className="label-caps-sm">{question.difficulty}</span>
+            {question.reviewFlag && (
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: "0.2rem",
+                fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: "0.65rem",
+                letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.35 0 0)",
+                border: "1px solid oklch(0.60 0 0)", padding: "0.1rem 0.4rem",
+              }}>
+                <Flag size={9} />
+                Revision
+              </span>
             )}
+            {question.difficulty && <span className="label-caps-sm">{question.difficulty}</span>}
           </div>
-          <p
-            style={{
-              fontFamily: "'Barlow', sans-serif",
-              fontSize: "0.88rem",
-              lineHeight: 1.5,
-              color: "oklch(0.15 0 0)",
-              overflow: "hidden",
-              display: "-webkit-box",
-              WebkitLineClamp: expanded ? "unset" : 2,
-              WebkitBoxOrient: "vertical",
-            }}
-          >
+          <p style={{
+            fontFamily: "'Barlow', sans-serif", fontSize: "0.88rem", lineHeight: 1.5, color: "oklch(0.15 0 0)",
+            overflow: "hidden", display: "-webkit-box", WebkitLineClamp: expanded ? "unset" : 2, WebkitBoxOrient: "vertical",
+          }}>
             {question.question}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            style={{ color: "oklch(0.70 0 0)", background: "none", border: "none", padding: "4px" }}
+            onClick={(e) => { e.stopPropagation(); onToggleReview(); }}
+            title={question.reviewFlag ? "Quitar de revision" : "Marcar para revision"}
+            style={{ color: question.reviewFlag ? "oklch(0.30 0 0)" : "oklch(0.70 0 0)", background: "none", border: "none", padding: "4px", cursor: "pointer" }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "oklch(0.20 0 0)")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = question.reviewFlag ? "oklch(0.30 0 0)" : "oklch(0.70 0 0)")}
+          >
+            {question.reviewFlag ? <Flag size={13} /> : <FlagOff size={13} />}
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            style={{ color: "oklch(0.70 0 0)", background: "none", border: "none", padding: "4px", cursor: "pointer" }}
             onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "oklch(0.20 0 0)")}
             onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "oklch(0.70 0 0)")}
           >
@@ -345,37 +302,20 @@ function QuestionRow({
         <div className="px-5 pb-5 border-t border-border" style={{ background: "oklch(0.98 0 0)" }}>
           <div className="space-y-2 mt-3">
             {opts.map(({ key, text }) => (
-              <div
-                key={key}
-                className="flex items-start gap-3 py-2 px-3"
-                style={{
-                  background: key === question.correctOption ? "oklch(0.92 0 0)" : "transparent",
-                  border: `1px solid ${key === question.correctOption ? "oklch(0.60 0 0)" : "oklch(0.88 0 0)"}`,
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "'Barlow Condensed', sans-serif",
-                    fontWeight: 900,
-                    fontSize: "0.9rem",
-                    minWidth: "1.2rem",
-                    color: key === question.correctOption ? "oklch(0.20 0 0)" : "oklch(0.50 0 0)",
-                  }}
-                >
+              <div key={key} className="flex items-start gap-3 py-2 px-3" style={{
+                background: key === question.correctOption ? "oklch(0.92 0 0)" : "transparent",
+                border: `1px solid ${key === question.correctOption ? "oklch(0.60 0 0)" : "oklch(0.88 0 0)"}`,
+              }}>
+                <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: "0.9rem", minWidth: "1.2rem", color: key === question.correctOption ? "oklch(0.20 0 0)" : "oklch(0.50 0 0)" }}>
                   {key}
                 </span>
-                <span style={{ fontFamily: "'Barlow', sans-serif", fontSize: "0.85rem", lineHeight: 1.5 }}>
-                  {text}
-                </span>
+                <span style={{ fontFamily: "'Barlow', sans-serif", fontSize: "0.85rem", lineHeight: 1.5 }}>{text}</span>
               </div>
             ))}
           </div>
           {question.explanation && (
-            <div
-              className="mt-3 p-3"
-              style={{ background: "oklch(0.94 0 0)", borderLeft: "3px solid oklch(0.40 0 0)" }}
-            >
-              <div className="label-caps mb-1">Explicación</div>
+            <div className="mt-3 p-3" style={{ background: "oklch(0.94 0 0)", borderLeft: "3px solid oklch(0.40 0 0)" }}>
+              <div className="label-caps mb-1">Explicacion</div>
               <p style={{ fontFamily: "'Barlow', sans-serif", fontSize: "0.83rem", lineHeight: 1.6, color: "oklch(0.25 0 0)" }}>
                 {question.explanation}
               </p>

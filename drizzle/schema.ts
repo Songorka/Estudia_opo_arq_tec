@@ -81,6 +81,7 @@ export const questions = mysqlTable("questions", {
   difficulty: mysqlEnum("difficulty", ["facil", "medio", "dificil"]).default("medio"),
   tags: json("tags").$type<string[]>().default([]),
   active: boolean("active").default(true).notNull(),
+  reviewFlag: boolean("reviewFlag").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

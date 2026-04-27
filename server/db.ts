@@ -195,14 +195,19 @@ export async function createQuestions(qs: InsertQuestion[]) {
 
 export async function getQuestions(
   userId: number,
-  opts?: { topicId?: number; source?: string; docType?: string; limit?: number; offset?: number }
+  opts?: { topicId?: number; topicIds?: number[]; source?: string; docType?: string; limit?: number; offset?: number; reviewOnly?: boolean }
 ) {
   const db = await getDb();
   if (!db) return [];
   const conditions = [eq(questions.userId, userId), eq(questions.active, true)];
-  if (opts?.topicId) conditions.push(eq(questions.topicId, opts.topicId));
+  if (opts?.topicIds && opts.topicIds.length > 0) {
+    conditions.push(inArray(questions.topicId, opts.topicIds));
+  } else if (opts?.topicId) {
+    conditions.push(eq(questions.topicId, opts.topicId));
+  }
   if (opts?.source)
     conditions.push(eq(questions.source, opts.source as "extracted" | "ai_generated"));
+  if (opts?.reviewOnly) conditions.push(eq(questions.reviewFlag, true));
 
   if (opts?.docType) {
     // Join with documents to filter by document type
@@ -228,12 +233,16 @@ export async function getQuestions(
 export async function getRandomQuestions(
   userId: number,
   count: number,
-  opts?: { topicId?: number; source?: string; docType?: string }
+  opts?: { topicId?: number; topicIds?: number[]; source?: string; docType?: string }
 ) {
   const db = await getDb();
   if (!db) return [];
   const conditions = [eq(questions.userId, userId), eq(questions.active, true)];
-  if (opts?.topicId) conditions.push(eq(questions.topicId, opts.topicId));
+  if (opts?.topicIds && opts.topicIds.length > 0) {
+    conditions.push(inArray(questions.topicId, opts.topicIds));
+  } else if (opts?.topicId) {
+    conditions.push(eq(questions.topicId, opts.topicId));
+  }
   if (opts?.source)
     conditions.push(eq(questions.source, opts.source as "extracted" | "ai_generated"));
 
@@ -318,6 +327,25 @@ export async function deleteQuestion(id: number, userId: number) {
     .update(questions)
     .set({ active: false })
     .where(and(eq(questions.id, id), eq(questions.userId, userId)));
+}
+
+export async function setQuestionReviewFlag(id: number, userId: number, flag: boolean) {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(questions)
+    .set({ reviewFlag: flag })
+    .where(and(eq(questions.id, id), eq(questions.userId, userId)));
+}
+
+export async function getReviewQuestions(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(questions)
+    .where(and(eq(questions.userId, userId), eq(questions.active, true), eq(questions.reviewFlag, true)))
+    .orderBy(desc(questions.createdAt));
 }
 
 // ── Practice Sessions ──────────────────────────────────────────────

@@ -105,3 +105,15 @@
 
 ## Bugs fase 11
 - [x] Banco de Preguntas: formulario de generación cambiado a selector de topics existentes para evitar duplicados de temas y problemas de filtrado
+
+## Fase 12: Selector de temas mejorado + Marcado en revisión
+
+- [x] Componente TopicSelector reutilizable con bloques expandibles y selección múltiple/individual
+- [x] TopicSelector integrado en Banco (Generar Preguntas): selector con bloques agrupados
+- [x] TopicSelector integrado en Modo Práctica: selección multi-tema con chips de confirmación
+- [x] Campo reviewFlag añadido a la tabla questions (migración aplicada)
+- [x] Botón "Marcar para revisión" en cada pregunta durante la sesión de práctica
+- [x] Filtro "En revisión" en el Banco de Preguntas para ver/gestionar preguntas marcadas
+- [x] Indicador visual de revisión en filas del Banco (badge + fondo diferenciado)
+- [x] Backend: setReviewFlag, topicsWithCounts, startSession con topicIds múltiples
+- [x] Tests: topic-selector.test.ts con 5 tests pasando

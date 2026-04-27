@@ -1,0 +1,1 @@
+ALTER TABLE `questions` ADD `reviewFlag` boolean DEFAULT false NOT NULL;

@@ -40,6 +40,7 @@ import {
   getProgressByUserAndRange,
   getDailyAccuracy,
   archivePreviousConvocatoria,
+  setQuestionReviewFlag,
 } from "./db";
 
 // ── Documents router ───────────────────────────────────────────────
@@ -385,19 +386,23 @@ const questionsRouter = router({
     .input(
       z.object({
         topicId: z.number().optional(),
+        topicIds: z.array(z.number()).optional(),
         source: z.string().optional(),
         docType: z.string().optional(),
         limit: z.number().optional(),
         offset: z.number().optional(),
+        reviewOnly: z.boolean().optional(),
       }).optional()
     )
     .query(({ ctx, input }) =>
       getQuestions(ctx.user.id, {
         topicId: input?.topicId,
+        topicIds: input?.topicIds,
         source: input?.source,
         docType: input?.docType,
         limit: input?.limit ?? 50,
         offset: input?.offset ?? 0,
+        reviewOnly: input?.reviewOnly,
       })
     ),
 
@@ -406,6 +411,24 @@ const questionsRouter = router({
   delete: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(({ ctx, input }) => deleteQuestion(input.id, ctx.user.id)),
+
+  setReviewFlag: protectedProcedure
+    .input(z.object({ id: z.number(), flag: z.boolean() }))
+    .mutation(({ ctx, input }) => setQuestionReviewFlag(input.id, ctx.user.id, input.flag)),
+
+  topicsWithCounts: protectedProcedure.query(async ({ ctx }) => {
+    const rawTopics = await getTopics(ctx.user.id);
+    const progress = await getProgressByUser(ctx.user.id);
+    return rawTopics.map((t) => {
+      const p = progress.find((p) => p.topicId === t.id);
+      return {
+        id: t.id,
+        name: t.name,
+        totalAnswered: p?.totalAnswered ?? 0,
+        totalCorrect: p?.totalCorrect ?? 0,
+      };
+    });
+  }),
 
   generate: protectedProcedure
     .input(
@@ -540,15 +563,31 @@ const practiceRouter = router({
     .input(
       z.object({
         topicId: z.number().optional(),
+        topicIds: z.array(z.number()).optional(),
         source: z.string().optional(),
         count: z.number().min(1).max(50).default(10),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const qs = await getRandomQuestions(ctx.user.id, input.count, {
-        topicId: input.topicId,
-        source: input.source,
-      });
+      const hasMultiTopics = input.topicIds && input.topicIds.length > 0;
+
+      let qs: Awaited<ReturnType<typeof getRandomQuestions>> = [];
+
+      if (hasMultiTopics) {
+        // Fetch from each topic proportionally and merge
+        const topicIds = input.topicIds!;
+        for (const topicId of topicIds) {
+          const perTopic = Math.ceil(input.count / topicIds.length);
+          const chunk = await getRandomQuestions(ctx.user.id, perTopic, { topicId, source: input.source });
+          qs = [...qs, ...chunk];
+        }
+        qs = qs.sort(() => Math.random() - 0.5).slice(0, input.count);
+      } else {
+        qs = await getRandomQuestions(ctx.user.id, input.count, {
+          topicId: input.topicId,
+          source: input.source,
+        });
+      }
 
       if (qs.length === 0)
         throw new TRPCError({
@@ -558,7 +597,7 @@ const practiceRouter = router({
 
       const sessionId = await createSession({
         userId: ctx.user.id,
-        filterTopicId: input.topicId,
+        filterTopicId: input.topicId ?? (hasMultiTopics ? input.topicIds![0] : undefined),
         filterSource: input.source,
         totalQuestions: qs.length,
       });
