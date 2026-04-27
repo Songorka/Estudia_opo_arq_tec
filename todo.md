@@ -76,8 +76,8 @@
 
 ## Bugs detectados (fase 9)
 
-- [ ] Push a GitHub falla: el token no está configurado o no se valida correctamente antes del push
-- [ ] Extracción de preguntas desde PDF falla: error al llamar a la IA con la URL del archivo
+- [x] Push a GitHub falla: el token no está configurado o no se valida correctamente antes del push
+- [x] Extracción de preguntas desde PDF falla: error al llamar a la IA con la URL del archivo
 
 ## Fase 9: Bugs + Temario
 
@@ -87,3 +87,18 @@
 - [x] Temario: indicador visual de si el tema tiene documento PDF asociado
 - [x] Temario: acceso rápido a subir documento para temas sin PDF
 - [x] Navegación: añadir Temario al sidebar
+
+## Fase 10: Extracción PDF + Temas automáticos
+
+- [x] Diagnosticar y corregir el error de extracción de preguntas desde PDF
+- [x] Al procesar la convocatoria, extraer automáticamente los temas y crearlos en el Temario
+- [x] Al procesar exámenes/temas, asociar las preguntas al bloque temático correspondiente
+
+## Fase 10b: Gaps detectados
+
+- [x] Al extraer preguntas de documentos tipo `tema`, usar `doc.topicId` para forzar la asociación al bloque seleccionado al subir (evitar duplicados de temas por inferencia IA)
+
+## Fase 10c: Validación topicId en temas
+
+- [x] Frontend: bloquear subida de documentos tipo `tema` si no se selecciona bloque temático
+- [x] Backend: validar que `topicId` es obligatorio en `getUploadUrl` para tipo `tema`

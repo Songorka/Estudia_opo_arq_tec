@@ -67,6 +67,9 @@ const documentsRouter = router({
         year: z.string().optional(),
         topicId: z.number().optional(),
         fileSize: z.number().optional(),
+      }).refine((data) => data.type !== "tema" || data.topicId !== undefined, {
+        message: "Los documentos de tipo tema requieren un bloque temático",
+        path: ["topicId"],
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -116,19 +119,83 @@ const documentsRouter = router({
         }> = [
           {
             type: "file_url",
-            file_url: {
-              url: signedUrl,
-              mime_type: "application/pdf",
-            },
+            file_url: { url: signedUrl, mime_type: "application/pdf" },
           },
         ];
+
+        // ── Step 1: If this is a convocatoria, extract the list of topics first ──
+        if (doc.type === "convocatoria") {
+          const topicsResponse = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `Eres un experto en oposiciones de Arquitecto Técnico en España.
+Analiza esta convocatoria oficial y extrae la lista completa de temas del temario.
+Devuelve ÚNICAMENTE un JSON válido con este esquema:
+{
+  "topics": [
+    { "name": "nombre del tema", "description": "descripción breve del contenido" }
+  ]
+}
+Extrae TODOS los temas que aparezcan en el programa o temario oficial. Normaliza los nombres (sin números de tema, solo el nombre del bloque).`,
+              },
+              { role: "user", content: fileContent },
+            ],
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: "topics_list",
+                strict: true,
+                schema: {
+                  type: "object",
+                  properties: {
+                    topics: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          name: { type: "string" },
+                          description: { type: "string" },
+                        },
+                        required: ["name", "description"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ["topics"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          });
+
+          const topicsContent = topicsResponse.choices[0]?.message?.content;
+          if (topicsContent) {
+            const parsedTopics = JSON.parse(
+              typeof topicsContent === "string" ? topicsContent : JSON.stringify(topicsContent)
+            ) as { topics: Array<{ name: string; description: string }> };
+
+            // Create topics that don't exist yet
+            for (const t of parsedTopics.topics) {
+              await ensureTopic(ctx.user.id, t.name, t.description);
+            }
+          }
+        }
+
+        // ── Step 2: Extract questions (for examen and tema documents) ──
+        if (doc.type === "convocatoria") {
+          // For convocatoria we only extract topics, not questions
+          await updateDocumentProcessed(input.documentId, true);
+          const topicCount = (await getTopics(ctx.user.id)).length;
+          return { count: 0, topicsCreated: topicCount };
+        }
 
         const response = await invokeLLM({
           messages: [
             {
               role: "system",
               content: `Eres un experto en oposiciones de Arquitecto Técnico en España. 
-Tu tarea es extraer preguntas tipo test de un examen oficial.
+Tu tarea es extraer preguntas tipo test de un documento oficial.
 Devuelve ÚNICAMENTE un JSON válido con el siguiente esquema exacto:
 {
   "questions": [
@@ -138,19 +205,16 @@ Devuelve ÚNICAMENTE un JSON válido con el siguiente esquema exacto:
       "optionB": "opción B", 
       "optionC": "opción C",
       "optionD": "opción D",
-      "correctOption": "A" | "B" | "C" | "D",
+      "correctOption": "A",
       "explanation": "explicación breve de por qué es correcta",
       "topic": "nombre del bloque temático (ej: Estructuras, Instalaciones, Normativa, Materiales, Gestión de obras, etc.)",
-      "difficulty": "facil" | "medio" | "dificil"
+      "difficulty": "facil"
     }
   ]
 }
 Extrae TODAS las preguntas que encuentres. Si no hay respuesta correcta indicada, infiere la más probable.`,
             },
-            {
-              role: "user",
-              content: fileContent,
-            },
+            { role: "user", content: fileContent },
           ],
           response_format: {
             type: "json_schema",
@@ -206,7 +270,11 @@ Extrae TODAS las preguntas que encuentres. Si no hay respuesta correcta indicada
 
         const toInsert = await Promise.all(
           parsed.questions.map(async (q) => {
-            const topicId = await ensureTopic(ctx.user.id, q.topic);
+            // For 'tema' documents, use the topic already assigned to the document
+            // to avoid creating duplicate topics via AI inference
+            const topicId = (doc.type === "tema" && doc.topicId)
+              ? doc.topicId
+              : await ensureTopic(ctx.user.id, q.topic);
             return {
               userId: ctx.user.id,
               documentId: input.documentId,

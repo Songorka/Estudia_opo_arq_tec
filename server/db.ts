@@ -158,7 +158,7 @@ export async function createTopic(topic: InsertTopic) {
   return result;
 }
 
-export async function ensureTopic(userId: number, name: string): Promise<number> {
+export async function ensureTopic(userId: number, name: string, description?: string): Promise<number> {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   const existing = await db
@@ -167,7 +167,7 @@ export async function ensureTopic(userId: number, name: string): Promise<number>
     .where(and(eq(topics.userId, userId), eq(topics.name, name)))
     .limit(1);
   if (existing.length > 0) return existing[0].id;
-  const [result] = await db.insert(topics).values({ userId, name });
+  const [result] = await db.insert(topics).values({ userId, name, ...(description ? { description } : {}) });
   return (result as { insertId: number }).insertId;
 }
 

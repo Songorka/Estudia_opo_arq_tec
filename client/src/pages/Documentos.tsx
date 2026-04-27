@@ -54,7 +54,12 @@ export default function Documentos() {
   });
   const extractMut = trpc.documents.extractQuestions.useMutation({
     onSuccess: (data) => {
-      toast.success(`${data.count} preguntas extraídas correctamente`);
+      const d = data as { count: number; topicsCreated?: number };
+      if (d.topicsCreated !== undefined) {
+        toast.success(`Convocatoria procesada: ${d.topicsCreated} temas creados en el Temario`);
+      } else {
+        toast.success(`${d.count} preguntas extraídas correctamente`);
+      }
       utils.documents.list.invalidate();
       utils.questions.list.invalidate();
       utils.topics.list.invalidate();
@@ -85,8 +90,12 @@ export default function Documentos() {
     getUploadUrl,
     confirmUpload,
     onDelete: (id: number) => deleteMut.mutate({ id }),
-    onExtract: (id: number) => {
-      toast.info("Extrayendo preguntas con IA...");
+    onExtract: (id: number, docType?: string) => {
+      if (docType === "convocatoria") {
+        toast.info("Procesando convocatoria: extrayendo temario con IA...");
+      } else {
+        toast.info("Extrayendo preguntas con IA...");
+      }
       extractMut.mutate({ documentId: id });
     },
     onPush: (id: number) => pushMut.mutate({ documentId: id }),
@@ -174,7 +183,7 @@ function CategorySection({
   getUploadUrl: ReturnType<typeof trpc.documents.getUploadUrl.useMutation>;
   confirmUpload: ReturnType<typeof trpc.documents.confirmUpload.useMutation>;
   onDelete: (id: number) => void;
-  onExtract: (id: number) => void;
+  onExtract: (id: number, docType?: string) => void;
   onPush: (id: number) => void;
   extractingId: number | undefined;
   pushingId: number | undefined;
@@ -198,6 +207,13 @@ function CategorySection({
       return;
     }
 
+    // Validate: tema documents require a topic
+    if (type === "tema" && !selectedTopicId) {
+      toast.error("Selecciona un bloque temático antes de subir un tema teórico");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+
     setUploading(true);
     try {
       const { key, docId } = await getUploadUrl.mutateAsync({
@@ -211,6 +227,7 @@ function CategorySection({
       const formData = new FormData();
       formData.append("file", file);
       formData.append("key", key);
+      formData.append("docId", String(docId));
 
       const res = await fetch("/api/upload", { method: "POST", body: formData });
       if (!res.ok) throw new Error("Upload failed");
@@ -332,7 +349,7 @@ function CategorySection({
                   doc={doc}
                   type={type}
                   onDelete={() => onDelete(doc.id)}
-                  onExtract={() => onExtract(doc.id)}
+                   onExtract={() => onExtract(doc.id, doc.type)}
                   onPush={() => onPush(doc.id)}
                   extracting={extractingId === doc.id}
                   pushing={pushingId === doc.id}
