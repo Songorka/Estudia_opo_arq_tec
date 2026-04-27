@@ -191,27 +191,40 @@
 }
 
 .badge-source {
-  font-family: 'Barlow', sans-serif;
-  font-weight: 600;
-  font-size: 0.6rem;
-  letter-spacing: 0.16em;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  padding: 0.2rem 0.5rem;
+  padding: 0.18rem 0.55rem;
   border: 1px solid;
   display: inline-flex;
   align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
 }
 
+/* Exámenes anteriores: negro sólido — máxima autoridad */
 .badge-extracted {
-  border-color: oklch(0.30 0 0);
-  color: oklch(0.30 0 0);
-  background: oklch(0.95 0 0);
+  border-color: oklch(0.15 0 0);
+  color: oklch(0.97 0 0);
+  background: oklch(0.15 0 0);
 }
 
+/* Generada por IA: gris medio con borde punteado */
 .badge-ai {
   border-color: oklch(0.55 0 0);
-  color: oklch(0.55 0 0);
-  background: oklch(0.97 0 0);
+  border-style: dashed;
+  color: oklch(0.30 0 0);
+  background: oklch(0.96 0 0);
+}
+
+/* Extraída de tema teórico: borde sólido gris claro, fondo blanco */
+.badge-tema {
+  border-color: oklch(0.65 0 0);
+  border-style: solid;
+  color: oklch(0.40 0 0);
+  background: oklch(1 0 0);
 }
 
 .btn-industrial {

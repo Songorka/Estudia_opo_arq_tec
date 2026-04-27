@@ -1,8 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
-import { Trash2, Cpu, Plus, ChevronDown, ChevronUp, Flag, FlagOff } from "lucide-react";
+import { Trash2, Cpu, Plus, ChevronDown, ChevronUp, Flag, FlagOff, FileText, Sparkles, BookOpen } from "lucide-react";
 import { toast } from "sonner";
-import type { Question } from "../../../drizzle/schema";
 import TopicSelector from "@/components/TopicSelector";
 
 export default function Banco() {
@@ -203,6 +202,20 @@ export default function Banco() {
           <span className="label-caps-sm ml-auto">{questions?.length ?? 0} preguntas</span>
         </div>
 
+        {/* Leyenda de fuentes */}
+        <div className="flex flex-wrap gap-3 items-center py-2">
+          <span className="label-caps-sm" style={{ color: "oklch(0.55 0 0)" }}>Leyenda:</span>
+          <span className="badge-source badge-extracted" style={{ gap: "0.3rem" }}>
+            <FileText size={9} /> Examen / Convocatoria
+          </span>
+          <span className="badge-source badge-tema" style={{ gap: "0.3rem" }}>
+            <BookOpen size={9} /> Tema Teórico
+          </span>
+          <span className="badge-source badge-ai" style={{ gap: "0.3rem" }}>
+            <Sparkles size={9} /> IA Generada
+          </span>
+        </div>
+
         {/* Question list */}
         <div className="border border-border bg-card">
           {isLoading ? (
@@ -215,7 +228,7 @@ export default function Banco() {
               </div>
             </div>
           ) : (
-            questions.map((q: Question) => (
+            questions.map((q) => (
               <QuestionRow
                 key={q.id}
                 question={q}
@@ -232,10 +245,47 @@ export default function Banco() {
   );
 }
 
+// Determina el tipo de fuente de una pregunta para el badge y el borde
+function getSourceMeta(q: { source: string; docType?: string | null }) {
+  if (q.source === "ai_generated") {
+    return {
+      badgeClass: "badge-ai",
+      label: "IA Generada",
+      icon: <Sparkles size={9} />,
+      borderColor: "oklch(0.55 0 0)",
+    };
+  }
+  // extracted — distinguir por docType del documento origen
+  if (q.docType === "tema") {
+    return {
+      badgeClass: "badge-tema",
+      label: "Tema Teórico",
+      icon: <BookOpen size={9} />,
+      borderColor: "oklch(0.65 0 0)",
+    };
+  }
+  if (q.docType === "convocatoria") {
+    return {
+      badgeClass: "badge-extracted",
+      label: "Convocatoria",
+      icon: <FileText size={9} />,
+      borderColor: "oklch(0.15 0 0)",
+    };
+  }
+  // examen (o sin docType)
+  return {
+    badgeClass: "badge-extracted",
+    label: "Examen Anterior",
+    icon: <FileText size={9} />,
+    borderColor: "oklch(0.15 0 0)",
+  };
+}
+
 function QuestionRow({
   question, expanded, onToggle, onDelete, onToggleReview,
 }: {
-  question: Question; expanded: boolean; onToggle: () => void; onDelete: () => void; onToggleReview: () => void;
+  question: { id: number; source: string; docType?: string | null; question: string; optionA: string; optionB: string; optionC: string; optionD: string; correctOption: string; explanation?: string | null; difficulty?: string | null; reviewFlag: boolean };
+  expanded: boolean; onToggle: () => void; onDelete: () => void; onToggleReview: () => void;
 }) {
   const opts = [
     { key: "A", text: question.optionA },
@@ -244,8 +294,10 @@ function QuestionRow({
     { key: "D", text: question.optionD },
   ];
 
+  const sourceMeta = getSourceMeta(question);
+
   return (
-    <div className="border-b border-border last:border-b-0">
+    <div className="border-b border-border last:border-b-0" style={{ borderLeft: `3px solid ${sourceMeta.borderColor}` }}>
       <div
         className="px-5 py-4 flex items-start gap-4 cursor-pointer"
         onClick={onToggle}
@@ -253,8 +305,9 @@ function QuestionRow({
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className={`badge-source ${question.source === "extracted" ? "badge-extracted" : "badge-ai"}`}>
-              {question.source === "extracted" ? "Examen" : "IA"}
+            <span className={`badge-source ${sourceMeta.badgeClass}`}>
+              {sourceMeta.icon}
+              {sourceMeta.label}
             </span>
             {question.reviewFlag && (
               <span style={{

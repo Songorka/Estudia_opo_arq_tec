@@ -117,3 +117,10 @@
 - [x] Indicador visual de revisión en filas del Banco (badge + fondo diferenciado)
 - [x] Backend: setReviewFlag, topicsWithCounts, startSession con topicIds múltiples
 - [x] Tests: topic-selector.test.ts con 5 tests pasando
+
+## Fase 13: Indicadores visuales de fuente en el Banco
+
+- [x] Badges diferenciados por fuente: exámenes/convocatoria (negro sólido), IA (gris borde punteado), temas teóricos (borde gris claro)
+- [x] Indicador de color en el borde izquierdo de cada fila según fuente
+- [x] Leyenda visual en el Banco para explicar los colores
+- [x] Backend: getQuestions hace join con documents para devolver docType junto a cada pregunta

@@ -220,9 +220,32 @@ export async function getQuestions(
     conditions.push(inArray(questions.documentId, ids));
   }
 
+  const selectFields = {
+    id: questions.id,
+    userId: questions.userId,
+    documentId: questions.documentId,
+    topicId: questions.topicId,
+    source: questions.source,
+    question: questions.question,
+    optionA: questions.optionA,
+    optionB: questions.optionB,
+    optionC: questions.optionC,
+    optionD: questions.optionD,
+    correctOption: questions.correctOption,
+    explanation: questions.explanation,
+    difficulty: questions.difficulty,
+    tags: questions.tags,
+    active: questions.active,
+    reviewFlag: questions.reviewFlag,
+    createdAt: questions.createdAt,
+    updatedAt: questions.updatedAt,
+    docType: documents.type,
+  };
+
   const q = db
-    .select()
+    .select(selectFields)
     .from(questions)
+    .leftJoin(documents, eq(questions.documentId, documents.id))
     .where(and(...conditions))
     .orderBy(desc(questions.createdAt));
 
