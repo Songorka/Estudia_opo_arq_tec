@@ -417,6 +417,17 @@ const questionsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      console.log(`[generate] user=${ctx.user.id} topicId=${input.topicId} topicName="${input.topicName}" count=${input.count} difficulty=${input.difficulty}`);
+      
+      // Validar que hay nombre de tema (puede ser vacío si el topic no cargó en el cliente)
+      const topicName = input.topicName.trim();
+      if (!topicName) {
+        throw new TRPCError({ 
+          code: "BAD_REQUEST", 
+          message: "El bloque temático no puede estar vacío. Selecciona un tema del listado o escribe un nombre."
+        });
+      }
+
       const response = await invokeLLM({
         messages: [
           {
@@ -430,7 +441,7 @@ Devuelve ÚNICAMENTE JSON válido.`,
           },
           {
             role: "user",
-            content: `Genera ${input.count} preguntas tipo test sobre: "${input.topicName}".
+            content: `Genera ${input.count} preguntas tipo test sobre: "${topicName}".
 ${input.difficulty ? `Dificultad: ${input.difficulty}` : "Mezcla dificultades."}
 Formato JSON:
 {
@@ -500,7 +511,7 @@ Formato JSON:
       };
 
       // Si se pasa topicId explícito, lo usamos directamente (evita duplicados por nombre)
-      const topicId = input.topicId ?? await ensureTopic(ctx.user.id, input.topicName);
+      const topicId = input.topicId ?? await ensureTopic(ctx.user.id, topicName);
       const toInsert = parsed.questions.map((q) => ({
         userId: ctx.user.id,
         documentId: null,

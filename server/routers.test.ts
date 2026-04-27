@@ -122,13 +122,14 @@ describe("exam router", () => {
     expect(Array.isArray(result)).toBe(true);
   });
 
-  it("exam.start throws NOT_FOUND when no questions available", async () => {
+  it("exam.start throws NOT_FOUND when filtering by non-existent topicId", async () => {
     const { ctx } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
+    // Use a topicId that is guaranteed to have no questions (very large ID)
     await expect(
       caller.exam.start({
         title: "Test exam",
-        topicIds: [],
+        topicIds: [999999],
         source: "all",
         count: 5,
         penaltyPerError: "0.25",
