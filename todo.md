@@ -124,3 +124,14 @@
 - [x] Indicador de color en el borde izquierdo de cada fila según fuente
 - [x] Leyenda visual en el Banco para explicar los colores
 - [x] Backend: getQuestions hace join con documents para devolver docType junto a cada pregunta
+
+## Fase 14: Numeración y agrupación de temas en el Temario
+
+- [x] Añadir campo `group` (varchar) y `topicNumber` (int) al schema topics
+- [x] Migrar BD y actualizar db.ts para soportar grupos y numeración
+- [x] Actualizar Temario.tsx: mostrar temas agrupados por grupo con numeración (ej. "General - Tema 1")
+- [x] Actualizar TopicSelector: mostrar prefijo de grupo cuando hay colisión de nombres
+- [x] Actualizar routers.ts para exponer group y topicNumber en los endpoints de topics
+- [x] displayLabel calculado en backend con detección automática de colisión de topicNumber entre grupos
+- [x] Formulario de creación de tema con campos Grupo (autocompletado) y Número de tema
+- [x] Badge T1/T2 en cada fila del TopicSelector y en el Temario

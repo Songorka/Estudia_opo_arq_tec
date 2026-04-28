@@ -5,12 +5,13 @@
  *  - mode="single"   → selecciona un solo topicId (o undefined para "todos")
  *  - mode="multi"    → selecciona un array de topicIds (vacío = todos)
  *
- * Los temas se agrupan automáticamente por prefijo de nombre:
- *   "Tema 1 — Construcción" → grupo "Tema 1"
- *   "Bloque A / Urbanismo"  → grupo "Bloque A"
- *   Sin prefijo reconocible → grupo "Otros"
+ * Agrupación:
+ *  - Si el topic tiene campo `group`, se agrupa por ese campo.
+ *  - Si no tiene `group`, se intenta inferir del nombre (compatibilidad retroactiva).
+ *  - Si hay colisión de topicNumber entre grupos, se usa displayLabel del backend.
  *
- * Si hay pocos temas (≤ 8) se muestran todos sin agrupar.
+ * Cada tema muestra su displayLabel (ej. "General · Tema 1 — Construcción")
+ * o simplemente su nombre si no tiene numeración.
  */
 
 import { useState, useMemo } from "react";
@@ -19,29 +20,38 @@ import { ChevronDown, ChevronUp, CheckSquare, Square, Minus } from "lucide-react
 type Topic = {
   id: number;
   name: string;
+  group?: string | null;
+  topicNumber?: number | null;
+  displayLabel?: string;
   totalAnswered?: number;
   totalCorrect?: number;
 };
 
 // ── Helpers de agrupación ──────────────────────────────────────────
 
-function getGroupKey(name: string): string {
-  // "Tema 1 — Algo" → "Tema 1"
+/** Obtiene la clave de grupo de un tema, priorizando el campo `group` explícito */
+function getGroupKey(t: Topic): string {
+  if (t.group?.trim()) return t.group.trim();
+  // Compatibilidad retroactiva: inferir del nombre
+  const name = t.name;
   const matchTema = name.match(/^(Tema\s+\d+)/i);
   if (matchTema) return matchTema[1];
-  // "Bloque A / Algo" → "Bloque A"
   const matchBloque = name.match(/^(Bloque\s+\S+)/i);
   if (matchBloque) return matchBloque[1];
-  // "Grupo X: Algo" → "Grupo X"
   const matchGrupo = name.match(/^([^:\/—–\-]+?)[\s]*[:\-\/—–]/);
   if (matchGrupo) return matchGrupo[1].trim();
   return "Otros";
 }
 
+/** Etiqueta de visualización de un tema: usa displayLabel si existe, si no el nombre */
+function getLabel(t: Topic): string {
+  return t.displayLabel ?? t.name;
+}
+
 function groupTopics(topics: Topic[]): Array<{ key: string; topics: Topic[] }> {
   const map = new Map<string, Topic[]>();
   for (const t of topics) {
-    const key = getGroupKey(t.name);
+    const key = getGroupKey(t);
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(t);
   }
@@ -80,12 +90,12 @@ export default function TopicSelector(props: Props) {
   if (props.mode === "single") {
     if (props.value !== undefined) {
       const t = topics.find((t) => t.id === props.value);
-      label = t?.name ?? placeholder;
+      label = t ? getLabel(t) : placeholder;
     }
   } else {
     if (props.value.length === 1) {
       const t = topics.find((t) => t.id === props.value[0]);
-      label = t?.name ?? placeholder;
+      label = t ? getLabel(t) : placeholder;
     } else if (props.value.length > 1) {
       label = `${props.value.length} temas seleccionados`;
     }
@@ -215,7 +225,9 @@ export default function TopicSelector(props: Props) {
             onMouseLeave={(e) => (e.currentTarget.style.background = !hasSelection ? "oklch(0.95 0 0)" : "oklch(1 0 0)")}
           >
             {props.mode === "multi" ? (
-              !hasSelection ? <CheckSquare size={13} style={{ color: "oklch(0.20 0 0)", flexShrink: 0 }} /> : <Square size={13} style={{ color: "oklch(0.60 0 0)", flexShrink: 0 }} />
+              !hasSelection
+                ? <CheckSquare size={13} style={{ color: "oklch(0.20 0 0)", flexShrink: 0 }} />
+                : <Square size={13} style={{ color: "oklch(0.60 0 0)", flexShrink: 0 }} />
             ) : null}
             <span style={{
               fontFamily: "'Barlow Condensed', sans-serif",
@@ -299,7 +311,9 @@ function GroupedTopicList({
   toggleGroup?: (topics: Topic[]) => void;
   groupState?: (topics: Topic[]) => "all" | "some" | "none";
 }) {
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(groups.map((g) => g.key)));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    () => new Set(groups.map((g) => g.key))
+  );
 
   const toggleExpand = (key: string) => {
     setExpandedGroups((prev) => {
@@ -375,13 +389,22 @@ function GroupedTopicList({
                     ({group.topics.length})
                   </span>
                 </span>
-                {expanded ? <ChevronUp size={11} style={{ color: "oklch(0.50 0 0)", flexShrink: 0 }} /> : <ChevronDown size={11} style={{ color: "oklch(0.50 0 0)", flexShrink: 0 }} />}
+                {expanded
+                  ? <ChevronUp size={11} style={{ color: "oklch(0.50 0 0)", flexShrink: 0 }} />
+                  : <ChevronDown size={11} style={{ color: "oklch(0.50 0 0)", flexShrink: 0 }} />}
               </button>
             </div>
 
             {/* Topics in group */}
             {expanded && group.topics.map((t) => (
-              <TopicItem key={t.id} topic={t} mode={mode} selected={isSelected(t.id)} onToggle={() => toggleTopic(t.id)} indent={true} />
+              <TopicItem
+                key={t.id}
+                topic={t}
+                mode={mode}
+                selected={isSelected(t.id)}
+                onToggle={() => toggleTopic(t.id)}
+                indent={true}
+              />
             ))}
           </div>
         );
@@ -409,6 +432,8 @@ function TopicItem({
     ? Math.round(((topic.totalCorrect ?? 0) / topic.totalAnswered) * 100)
     : null;
 
+  const label = getLabel(topic);
+
   return (
     <div
       onClick={onToggle}
@@ -424,6 +449,22 @@ function TopicItem({
       onMouseEnter={(e) => { if (!selected) e.currentTarget.style.background = "oklch(0.97 0 0)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = selected ? "oklch(0.93 0 0)" : "oklch(1 0 0)"; }}
     >
+      {/* Número de tema badge */}
+      {topic.topicNumber != null && (
+        <span style={{
+          fontFamily: "'Barlow Condensed', sans-serif",
+          fontWeight: 900,
+          fontSize: "0.62rem",
+          letterSpacing: "0.1em",
+          background: selected ? "oklch(0.15 0 0)" : "oklch(0.88 0 0)",
+          color: selected ? "oklch(0.97 0 0)" : "oklch(0.35 0 0)",
+          padding: "0.05rem 0.35rem",
+          flexShrink: 0,
+        }}>
+          T{topic.topicNumber}
+        </span>
+      )}
+
       {mode === "multi" ? (
         selected
           ? <CheckSquare size={13} style={{ color: "oklch(0.10 0 0)", flexShrink: 0 }} />
@@ -437,6 +478,7 @@ function TopicItem({
           flexShrink: 0,
         }} />
       )}
+
       <span style={{
         flex: 1,
         fontFamily: "'Barlow', sans-serif",
@@ -446,8 +488,9 @@ function TopicItem({
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",
       }}>
-        {topic.name}
+        {label}
       </span>
+
       {accuracy !== null && (
         <span style={{
           fontFamily: "'Barlow Condensed', sans-serif",

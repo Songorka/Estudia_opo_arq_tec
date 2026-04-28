@@ -57,6 +57,8 @@ export const topics = mysqlTable("topics", {
   userId: int("userId").notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
+  group: varchar("group", { length: 128 }), // ej: "General", "Específico"
+  topicNumber: int("topicNumber"),           // número del tema dentro del grupo
   order: int("order").default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

@@ -354,11 +354,31 @@ const topicsRouter = router({
         docsByTopic.get(doc.topicId)!.push(doc);
       }
     }
+    // Detectar colisión de topicNumber entre grupos distintos
+    const numCount = new Map<number, number>();
+    for (const t of rawTopics) {
+      if (t.topicNumber != null) {
+        numCount.set(t.topicNumber, (numCount.get(t.topicNumber) ?? 0) + 1);
+      }
+    }
+
     return rawTopics.map((t) => {
       const p = progress.find((p) => p.topicId === t.id);
       const docs = docsByTopic.get(t.id) ?? [];
+      // Construir etiqueta de visualización
+      let displayLabel = t.name;
+      if (t.topicNumber != null) {
+        const hasCollision = (numCount.get(t.topicNumber) ?? 0) > 1;
+        const prefix = t.group
+          ? (hasCollision ? `${t.group} · Tema ${t.topicNumber}` : `Tema ${t.topicNumber}`)
+          : `Tema ${t.topicNumber}`;
+        displayLabel = `${prefix} — ${t.name}`;
+      } else if (t.group) {
+        displayLabel = `${t.group} — ${t.name}`;
+      }
       return {
         ...t,
+        displayLabel,
         totalAnswered: p?.totalAnswered ?? 0,
         totalCorrect: p?.totalCorrect ?? 0,
         totalWrong: p?.totalWrong ?? 0,
@@ -369,9 +389,20 @@ const topicsRouter = router({
   }),
 
   create: protectedProcedure
-    .input(z.object({ name: z.string().min(1), description: z.string().optional() }))
+    .input(z.object({
+      name: z.string().min(1),
+      description: z.string().optional(),
+      group: z.string().optional(),
+      topicNumber: z.number().int().positive().optional(),
+    }))
     .mutation(({ ctx, input }) =>
-      createTopic({ userId: ctx.user.id, name: input.name, description: input.description })
+      createTopic({
+        userId: ctx.user.id,
+        name: input.name,
+        description: input.description,
+        group: input.group ?? null,
+        topicNumber: input.topicNumber ?? null,
+      })
     ),
 
   delete: protectedProcedure
@@ -419,11 +450,29 @@ const questionsRouter = router({
   topicsWithCounts: protectedProcedure.query(async ({ ctx }) => {
     const rawTopics = await getTopics(ctx.user.id);
     const progress = await getProgressByUser(ctx.user.id);
+    // Detectar colisión de topicNumber
+    const numCount = new Map<number, number>();
+    for (const t of rawTopics) {
+      if (t.topicNumber != null) numCount.set(t.topicNumber, (numCount.get(t.topicNumber) ?? 0) + 1);
+    }
     return rawTopics.map((t) => {
       const p = progress.find((p) => p.topicId === t.id);
+      let displayLabel = t.name;
+      if (t.topicNumber != null) {
+        const hasCollision = (numCount.get(t.topicNumber) ?? 0) > 1;
+        const prefix = t.group
+          ? (hasCollision ? `${t.group} · Tema ${t.topicNumber}` : `Tema ${t.topicNumber}`)
+          : `Tema ${t.topicNumber}`;
+        displayLabel = `${prefix} — ${t.name}`;
+      } else if (t.group) {
+        displayLabel = `${t.group} — ${t.name}`;
+      }
       return {
         id: t.id,
         name: t.name,
+        group: t.group,
+        topicNumber: t.topicNumber,
+        displayLabel,
         totalAnswered: p?.totalAnswered ?? 0,
         totalCorrect: p?.totalCorrect ?? 0,
       };

@@ -148,7 +148,7 @@ export async function getTopics(userId: number) {
     .select()
     .from(topics)
     .where(eq(topics.userId, userId))
-    .orderBy(topics.order);
+    .orderBy(topics.group, topics.topicNumber, topics.order);
 }
 
 export async function createTopic(topic: InsertTopic) {
