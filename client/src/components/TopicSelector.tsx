@@ -25,6 +25,7 @@ type Topic = {
   displayLabel?: string;
   totalAnswered?: number;
   totalCorrect?: number;
+  hidden?: boolean | null;
 };
 
 // ── Helpers de agrupación ──────────────────────────────────────────
@@ -50,7 +51,9 @@ function getLabel(t: Topic): string {
 
 function groupTopics(topics: Topic[]): Array<{ key: string; topics: Topic[] }> {
   const map = new Map<string, Topic[]>();
-  for (const t of topics) {
+  // Filtrar temas ocultos antes de agrupar
+  const visible = topics.filter((t) => !t.hidden);
+  for (const t of visible) {
     const key = getGroupKey(t);
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(t);

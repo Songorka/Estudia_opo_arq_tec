@@ -124,8 +124,8 @@ describe("practice.startSession with topicIds", () => {
     const caller = appRouter.createCaller(createCtx());
     const result = await caller.practice.startSession({ topicIds: [10, 20], count: 10 });
 
-    // Should have called getRandomQuestions once per topic
-    expect(db.getRandomQuestions).toHaveBeenCalledTimes(2);
+    // Now calls getRandomQuestions once with the full topicIds array
+    expect(db.getRandomQuestions).toHaveBeenCalledTimes(1);
     expect(result.sessionId).toBe(99);
     expect(result.questions.length).toBeGreaterThan(0);
   });

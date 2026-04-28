@@ -35,7 +35,7 @@ const CATEGORY_META = {
     color: "oklch(0.40 0 0)",
     badgeClass: "badge-source",
     yearLabel: false,
-    hint: "Organiza cada PDF por bloque temático para facilitar la generación de preguntas.",
+    hint: "Sube PDF o Word (.docx). Organiza por bloque temático para facilitar la generación de preguntas.",
   },
 } as const;
 
@@ -202,9 +202,18 @@ function CategorySection({
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.name.endsWith(".pdf")) {
-      toast.error("Solo se admiten archivos PDF");
-      return;
+    const isPdf = file.name.endsWith(".pdf");
+    const isDocx = file.name.endsWith(".docx");
+    if (type === "tema") {
+      if (!isPdf && !isDocx) {
+        toast.error("Solo se admiten archivos PDF o Word (.docx) para temas teóricos");
+        return;
+      }
+    } else {
+      if (!isPdf) {
+        toast.error("Solo se admiten archivos PDF");
+        return;
+      }
     }
 
     // Validate: tema documents require a topic
@@ -311,19 +320,19 @@ function CategorySection({
                     style={{ fontFamily: "'Barlow', sans-serif", fontSize: "0.82rem", outline: "none", minWidth: "180px" }}
                   >
                     <option value="">Sin bloque asignado</option>
-                    {topics.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
+                    {topics.filter((t: any) => !t.hidden).map((t: any) => (
+                      <option key={t.id} value={t.id}>{t.displayLabel ?? t.name}</option>
                     ))}
                   </select>
                 </div>
               )}
               <label className="btn-industrial cursor-pointer" style={{ fontSize: "0.72rem" }}>
                 <Upload size={12} />
-                {uploading ? "Subiendo..." : `Subir PDF`}
+                {uploading ? "Subiendo..." : type === "tema" ? "Subir PDF / Word" : "Subir PDF"}
                 <input
                   ref={fileRef}
                   type="file"
-                  accept=".pdf"
+                  accept={type === "tema" ? ".pdf,.docx" : ".pdf"}
                   className="hidden"
                   onChange={handleUpload}
                   disabled={uploading}

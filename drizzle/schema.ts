@@ -60,6 +60,7 @@ export const topics = mysqlTable("topics", {
   group: varchar("group", { length: 128 }), // ej: "General", "Específico"
   topicNumber: int("topicNumber"),           // número del tema dentro del grupo
   order: int("order").default(0),
+  hidden: boolean("hidden").default(false).notNull(), // ocultar sin borrar
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -102,6 +103,7 @@ export const practiceSessions = mysqlTable("practiceSessions", {
   wrongAnswers: int("wrongAnswers").default(0).notNull(),
   filterTopicId: int("filterTopicId"),
   filterSource: varchar("filterSource", { length: 32 }),
+  aiSource: mysqlEnum("aiSource", ["topics", "external"]), // distingue IA de temas vs IA externa
 });
 
 export type PracticeSession = typeof practiceSessions.$inferSelect;

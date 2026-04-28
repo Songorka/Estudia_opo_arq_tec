@@ -358,24 +358,28 @@ function ConfigScreen({
 
             <div>
               <div className="label-caps mb-2">Fuente de preguntas</div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  { value: undefined, label: "Todas" },
-                  { value: "extracted", label: "Examenes reales" },
-                  { value: "ai_generated", label: "Generadas IA" },
+                  { value: undefined, label: "Todas", desc: "Cualquier origen" },
+                  { value: "extracted", label: "Exámenes reales", desc: "Extraidas de PDFs oficiales" },
+                  { value: "ai_topics", label: "IA — Temas subidos", desc: "Generadas a partir de tus documentos" },
+                  { value: "ai_external", label: "IA — Conocimiento externo", desc: "Generadas sin documento base" },
                 ].map((opt) => (
                   <button
                     key={String(opt.value)}
                     onClick={() => setConfig((c) => ({ ...c, source: opt.value }))}
-                    className="py-2 px-3 border"
+                    className="py-2 px-3 border text-left"
                     style={{
-                      fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: "0.72rem",
-                      letterSpacing: "0.1em", textTransform: "uppercase",
+                      fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: "0.68rem",
+                      letterSpacing: "0.08em", textTransform: "uppercase",
                       background: config.source === opt.value ? "oklch(0.10 0 0)" : "transparent",
                       color: config.source === opt.value ? "oklch(0.97 0 0)" : "oklch(0.40 0 0)",
                       borderColor: config.source === opt.value ? "oklch(0.10 0 0)" : "oklch(0.82 0 0)",
                     }}
-                  >{opt.label}</button>
+                  >
+                    <div>{opt.label}</div>
+                    <div style={{ fontWeight: 400, fontSize: "0.60rem", letterSpacing: "0.04em", marginTop: "0.15rem", opacity: 0.75 }}>{opt.desc}</div>
+                  </button>
                 ))}
               </div>
             </div>

@@ -1,8 +1,8 @@
-import { trpc } from "@/lib/trpc";
+import { trpc } from "../lib/trpc";
 import { useState } from "react";
 import {
-  BookOpen, FileText, CheckCircle, PlusCircle, Trash2,
-  ChevronRight, AlertCircle, Upload, Layers,
+  BookOpen, FileText, CheckCircle, PlusCircle,
+  ChevronRight, AlertCircle, Upload, Layers, EyeOff, Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "wouter";
@@ -15,6 +15,7 @@ type TopicWithMeta = {
   description?: string | null;
   group?: string | null;
   topicNumber?: number | null;
+  hidden?: boolean | null;
   displayLabel: string;
   totalAnswered: number;
   totalCorrect: number;
@@ -48,6 +49,13 @@ export default function Temario() {
   const utils = trpc.useUtils();
   const { data: topics, isLoading } = trpc.topics.list.useQuery();
 
+  const [showHidden, setShowHidden] = useState(false);
+
+  const toggleHiddenMut = trpc.topics.toggleHidden.useMutation({
+    onSuccess: () => utils.topics.list.invalidate(),
+    onError: (err) => toast.error(`Error: ${err.message}`),
+  });
+
   const createMut = trpc.topics.create.useMutation({
     onSuccess: () => {
       toast.success("Tema creado");
@@ -76,11 +84,13 @@ export default function Temario() {
   const [newNumber, setNewNumber] = useState("");
 
   const allTopics = (topics as TopicWithMeta[] | undefined) ?? [];
-  const withDoc = allTopics.filter((t) => t.hasDocument);
-  const withoutDoc = allTopics.filter((t) => !t.hasDocument);
-  const total = allTopics.length;
+  const visibleTopics = showHidden ? allTopics : allTopics.filter((t) => !t.hidden);
+  const hiddenCount = allTopics.filter((t) => t.hidden).length;
+  const withDoc = visibleTopics.filter((t) => t.hasDocument);
+  const withoutDoc = visibleTopics.filter((t) => !t.hasDocument);
+  const total = visibleTopics.length;
 
-  const grouped = groupTopics(allTopics);
+  const grouped = groupTopics(visibleTopics);
 
   // Grupos existentes para el autocompletado
   const existingGroups = Array.from(new Set(allTopics.map((t) => t.group).filter(Boolean))) as string[];
@@ -91,8 +101,18 @@ export default function Temario() {
       <div className="px-6 py-8 border-b border-border" style={{ background: "oklch(1 0 0)" }}>
         <div className="label-caps mb-2">Bloques de estudio</div>
         <div className="display-lg">Temario</div>
-        <div className="label-caps-sm mt-2">
-          {total} temas · {withDoc.length} con documento · {withoutDoc.length} sin documento
+        <div className="flex items-center gap-4 mt-2 flex-wrap">
+          <span className="label-caps-sm">{total} temas · {withDoc.length} con documento · {withoutDoc.length} sin documento</span>
+          {hiddenCount > 0 && (
+            <button
+              onClick={() => setShowHidden(!showHidden)}
+              className="flex items-center gap-1"
+              style={{ fontFamily: "'Barlow', sans-serif", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: showHidden ? "oklch(0.20 0 0)" : "oklch(0.55 0 0)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+            >
+              {showHidden ? <Eye size={11} /> : <EyeOff size={11} />}
+              {showHidden ? `Ocultar ${hiddenCount} ocultos` : `Mostrar ${hiddenCount} ocultos`}
+            </button>
+          )}
         </div>
       </div>
 
@@ -262,7 +282,7 @@ export default function Temario() {
                     <TopicRow
                       key={topic.id}
                       topic={topic}
-                      onDelete={() => deleteMut.mutate({ id: topic.id })}
+                      onToggleHidden={(hidden) => toggleHiddenMut.mutate({ id: topic.id, hidden })}
                       isLast={idx === items.length - 1}
                     />
                   ))}
@@ -280,11 +300,11 @@ export default function Temario() {
 
 function TopicRow({
   topic,
-  onDelete,
+  onToggleHidden,
   isLast,
 }: {
   topic: TopicWithMeta;
-  onDelete: () => void;
+  onToggleHidden: (hidden: boolean) => void;
   isLast: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -293,7 +313,7 @@ function TopicRow({
     : null;
 
   return (
-    <div className={isLast ? "" : "border-b border-border"}>
+      <div className={isLast ? "" : "border-b border-border"} style={{ opacity: topic.hidden ? 0.5 : 1 }}>
       {/* Main row */}
       <div
         className="px-5 py-4 flex items-center gap-4 cursor-pointer"
@@ -416,8 +436,8 @@ function TopicRow({
             )}
 
             {/* Actions */}
-            <div className="flex items-center gap-3 pt-1">
-              {!topic.hasDocument && (
+            <div className="flex items-center gap-3 pt-1 flex-wrap">
+              {!topic.hasDocument && !topic.hidden && (
                 <Link href="/documentos">
                   <button className="btn-industrial flex items-center gap-2" style={{ fontSize: "0.72rem" }}>
                     <Upload size={11} />
@@ -428,13 +448,13 @@ function TopicRow({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (confirm(`¿Eliminar el tema "${topic.name}"?`)) onDelete();
+                  onToggleHidden(!topic.hidden);
                 }}
                 className="btn-industrial-outline flex items-center gap-2"
                 style={{ fontSize: "0.72rem", color: "oklch(0.50 0 0)" }}
               >
-                <Trash2 size={11} />
-                Eliminar tema
+                {topic.hidden ? <Eye size={11} /> : <EyeOff size={11} />}
+                {topic.hidden ? "Mostrar tema" : "Ocultar tema"}
               </button>
             </div>
           </div>

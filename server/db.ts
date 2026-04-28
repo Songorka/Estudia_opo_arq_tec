@@ -266,8 +266,27 @@ export async function getRandomQuestions(
   } else if (opts?.topicId) {
     conditions.push(eq(questions.topicId, opts.topicId));
   }
-  if (opts?.source)
-    conditions.push(eq(questions.source, opts.source as "extracted" | "ai_generated"));
+  if (opts?.source) {
+    if (opts.source === "extracted") {
+      conditions.push(eq(questions.source, "extracted"));
+    } else if (opts.source === "ai_topics") {
+      // IA generada a partir de documentos de tema subidos por el usuario
+      conditions.push(eq(questions.source, "ai_generated"));
+      const topicDocIds = await db
+        .select({ id: documents.id })
+        .from(documents)
+        .where(and(eq(documents.userId, userId), eq(documents.type, "tema")));
+      const ids = topicDocIds.map((d) => d.id);
+      if (ids.length === 0) return [];
+      conditions.push(inArray(questions.documentId, ids));
+    } else if (opts.source === "ai_external") {
+      // IA generada sin documento base (documentId es null)
+      conditions.push(eq(questions.source, "ai_generated"));
+      conditions.push(sql`${questions.documentId} IS NULL`);
+    } else {
+      conditions.push(eq(questions.source, opts.source as "extracted" | "ai_generated"));
+    }
+  }
 
   if (opts?.docType) {
     const docIds = await db
@@ -748,4 +767,31 @@ export async function getDailyAccuracy(userId: number, days: number = 30) {
       pct: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0,
     }))
     .sort((a, b) => a.day.localeCompare(b.day));
+}
+
+// ── Topic visibility ───────────────────────────────────────────────
+
+export async function setTopicHidden(id: number, userId: number, hidden: boolean) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(topics).set({ hidden }).where(and(eq(topics.id, id), eq(topics.userId, userId)));
+}
+
+// ── Clear app data ─────────────────────────────────────────────────
+
+/**
+ * Elimina todas las preguntas, sesiones de práctica, respuestas, sesiones de examen,
+ * respuestas de examen y progreso del usuario. NO borra temas ni documentos.
+ */
+export async function clearAppData(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+
+  // Borrar en orden para respetar dependencias
+  await db.delete(examAnswers).where(eq(examAnswers.userId, userId));
+  await db.delete(sessionAnswers).where(eq(sessionAnswers.userId, userId));
+  await db.delete(examSessions).where(eq(examSessions.userId, userId));
+  await db.delete(practiceSessions).where(eq(practiceSessions.userId, userId));
+  await db.delete(userProgress).where(eq(userProgress.userId, userId));
+  await db.delete(questions).where(eq(questions.userId, userId));
 }

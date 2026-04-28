@@ -135,3 +135,15 @@
 - [x] displayLabel calculado en backend con detección automática de colisión de topicNumber entre grupos
 - [x] Formulario de creación de tema con campos Grupo (autocompletado) y Número de tema
 - [x] Badge T1/T2 en cada fila del TopicSelector y en el Temario
+
+## Fase 15: Limpiar app + Ocultar temas + IA distinguida + Word
+
+- [ ] Campo `hidden` (boolean) en tabla topics + migración BD
+- [ ] Toggle ocultar/mostrar en Temario.tsx (sin borrar el tema)
+- [ ] Filtrar temas ocultos en TopicSelector, Banco y Modo Práctica
+- [ ] Endpoint `clearApp`: borrar preguntas, sesiones, progreso y respuestas del usuario (no temas)
+- [ ] Botón "Limpiar aplicación" en Dashboard con confirmación doble (modal)
+- [ ] Practica.tsx: distinguir fuente IA en dos opciones: "IA desde temas subidos" vs "IA desde conocimiento externo"
+- [ ] Backend: campo `aiSource` en startSession para diferenciar los dos modos IA
+- [ ] Soporte Word (.docx) en subida de documentos tipo tema
+- [ ] Backend: conversión .docx a texto antes de enviar a la IA para extracción de preguntas

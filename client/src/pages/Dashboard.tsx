@@ -1,7 +1,19 @@
-import { trpc } from "@/lib/trpc";
+import { trpc } from "../lib/trpc";
 import { Link } from "wouter";
-import { FileText, BookOpen, ChevronRight, BarChart3, Github, Plus, ClipboardList, Calendar } from "lucide-react";
+import { FileText, BookOpen, ChevronRight, BarChart3, Github, Plus, ClipboardList, Calendar, Trash2 } from "lucide-react";
 import { useState, useMemo } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 import {
   LineChart,
   Line,
@@ -48,9 +60,21 @@ const EVOLUTION_DAYS: Record<DateRange, number> = {
 };
 
 export default function Dashboard() {
+  const utils = trpc.useUtils();
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const rangeParams = useMemo(() => getDateRange(dateRange), [dateRange]);
   const evolutionDays = EVOLUTION_DAYS[dateRange];
+
+  const clearDataMut = trpc.app.clearData.useMutation({
+    onSuccess: () => {
+      toast.success("Aplicación limpiada. Todos los datos de práctica y preguntas han sido eliminados.");
+      utils.stats.overview.invalidate();
+      utils.stats.progress.invalidate();
+      utils.stats.evolution.invalidate();
+      utils.questions.list.invalidate();
+    },
+    onError: (err) => toast.error(`Error al limpiar: ${err.message}`),
+  });
 
   const { data: stats } = trpc.stats.overview.useQuery(rangeParams);
   const { data: progressData } = trpc.stats.progress.useQuery(rangeParams);
@@ -259,6 +283,41 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
+
+            {/* Limpiar aplicación */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <div
+                  className="border border-border bg-card p-4 cursor-pointer"
+                  style={{ borderColor: "oklch(0.82 0 0)" }}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Trash2 size={13} style={{ color: "oklch(0.55 0 0)" }} />
+                    <span className="label-caps" style={{ color: "oklch(0.40 0 0)" }}>Limpiar aplicación</span>
+                  </div>
+                  <div className="label-caps-sm" style={{ color: "oklch(0.60 0 0)" }}>
+                    Elimina preguntas, sesiones y progreso. Los temas y documentos se conservan.
+                  </div>
+                </div>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Limpiar todos los datos?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acción eliminará permanentemente todas las preguntas del banco, sesiones de práctica, exámenes realizados y datos de progreso. Los temas y documentos subidos se conservarán. Esta acción no se puede deshacer.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => clearDataMut.mutate()}
+                    style={{ background: "oklch(0.15 0 0)", color: "oklch(0.97 0 0)" }}
+                  >
+                    {clearDataMut.isPending ? "Limpiando..." : "Sí, limpiar todo"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
             {/* GitHub sync status */}
             <div className="border border-border bg-card">

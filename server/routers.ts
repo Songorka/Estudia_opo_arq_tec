@@ -41,6 +41,8 @@ import {
   getDailyAccuracy,
   archivePreviousConvocatoria,
   setQuestionReviewFlag,
+  setTopicHidden,
+  clearAppData,
 } from "./db";
 
 // ── Documents router ───────────────────────────────────────────────
@@ -117,23 +119,37 @@ const documentsRouter = router({
         }
 
         console.log("[extractQuestions] doc.id:", doc.id, "doc.type:", doc.type, "storageKey:", doc.storageKey);
-        
-        // Get a proper signed URL so the LLM can access the PDF
-        const signedUrl = await storageGetSignedUrl(doc.storageKey);
 
-        const fileContent: Array<{
-          type: "file_url";
-          file_url: { url: string; mime_type: "application/pdf" };
-        }> = [
-          {
-            type: "file_url",
-            file_url: { url: signedUrl, mime_type: "application/pdf" },
-          },
-        ];
+        // Detect if the document is a Word file (.docx)
+        const isDocx = doc.storageKey.toLowerCase().endsWith(".docx") || doc.name.toLowerCase().endsWith(".docx");
+
+        // Build fileContent for the LLM
+        // For .docx: convert to plain text with mammoth, then send as text message
+        // For .pdf: send as file_url
+        let fileContent: Array<{ type: "file_url"; file_url: { url: string; mime_type: "application/pdf" } } | { type: "text"; text: string }>;
+
+        if (isDocx) {
+          // Fetch the docx bytes from storage and convert to plain text
+          const { default: mammoth } = await import("mammoth");
+          const signedUrl = await storageGetSignedUrl(doc.storageKey);
+          const fetchRes = await fetch(signedUrl);
+          const arrayBuffer = await fetchRes.arrayBuffer();
+          const { value: docxText } = await mammoth.extractRawText({ buffer: Buffer.from(arrayBuffer) });
+          fileContent = [{ type: "text", text: docxText }];
+        } else {
+          // Get a proper signed URL so the LLM can access the PDF
+          const signedUrl = await storageGetSignedUrl(doc.storageKey);
+          fileContent = [
+            {
+              type: "file_url",
+              file_url: { url: signedUrl, mime_type: "application/pdf" },
+            },
+          ];
+        }
 
         // ── Step 1: If this is a convocatoria, extract the list of topics first ──
         if (doc.type === "convocatoria") {
-          console.log("[extractQuestions] Processing convocatoria, signed URL obtained:", signedUrl.substring(0, 80));
+          console.log("[extractQuestions] Processing convocatoria, isDocx:", isDocx);
           
           let topicsResponse: any;
           try {
@@ -408,6 +424,10 @@ const topicsRouter = router({
   delete: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(({ ctx, input }) => deleteTopic(input.id, ctx.user.id)),
+
+  toggleHidden: protectedProcedure
+    .input(z.object({ id: z.number(), hidden: z.boolean() }))
+    .mutation(({ ctx, input }) => setTopicHidden(input.id, ctx.user.id, input.hidden)),
 });
 
 // ── Questions router ───────────────────────────────────────────────
@@ -623,14 +643,10 @@ const practiceRouter = router({
       let qs: Awaited<ReturnType<typeof getRandomQuestions>> = [];
 
       if (hasMultiTopics) {
-        // Fetch from each topic proportionally and merge
-        const topicIds = input.topicIds!;
-        for (const topicId of topicIds) {
-          const perTopic = Math.ceil(input.count / topicIds.length);
-          const chunk = await getRandomQuestions(ctx.user.id, perTopic, { topicId, source: input.source });
-          qs = [...qs, ...chunk];
-        }
-        qs = qs.sort(() => Math.random() - 0.5).slice(0, input.count);
+        qs = await getRandomQuestions(ctx.user.id, input.count, {
+          topicIds: input.topicIds,
+          source: input.source,
+        });
       } else {
         qs = await getRandomQuestions(ctx.user.id, input.count, {
           topicId: input.topicId,
@@ -1094,6 +1110,10 @@ export const appRouter = router({
   stats: statsRouter,
   exam: examRouter,
   github: githubRouter,
+  app: router({
+    clearData: protectedProcedure
+      .mutation(({ ctx }) => clearAppData(ctx.user.id)),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

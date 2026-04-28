@@ -43,6 +43,13 @@
       "when": 1777406304295,
       "tag": "0005_left_agent_zero",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1777407051435,
+      "tag": "0006_workable_stellaris",
+      "breakpoints": true
     }
   ]
 }
