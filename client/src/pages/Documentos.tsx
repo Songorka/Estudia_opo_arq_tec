@@ -204,9 +204,11 @@ function CategorySection({
     if (!file) return;
     const isPdf = file.name.endsWith(".pdf");
     const isDocx = file.name.endsWith(".docx");
+    const isDoc  = file.name.endsWith(".doc");
+    const isOdf  = file.name.endsWith(".odf") || file.name.endsWith(".odt");
     if (type === "tema") {
-      if (!isPdf && !isDocx) {
-        toast.error("Solo se admiten archivos PDF o Word (.docx) para temas teóricos");
+      if (!isPdf && !isDocx && !isDoc && !isOdf) {
+        toast.error("Solo se admiten PDF, Word (.docx/.doc) u ODF (.odt/.odf) para temas teóricos");
         return;
       }
     } else {
@@ -328,11 +330,11 @@ function CategorySection({
               )}
               <label className="btn-industrial cursor-pointer" style={{ fontSize: "0.72rem" }}>
                 <Upload size={12} />
-                {uploading ? "Subiendo..." : type === "tema" ? "Subir PDF / Word" : "Subir PDF"}
+                {uploading ? "Subiendo..." : type === "tema" ? "Subir PDF / Word / ODF" : "Subir PDF"}
                 <input
                   ref={fileRef}
                   type="file"
-                  accept={type === "tema" ? ".pdf,.docx" : ".pdf"}
+                  accept={type === "tema" ? ".pdf,.docx,.doc,.odt,.odf" : ".pdf"}
                   className="hidden"
                   onChange={handleUpload}
                   disabled={uploading}

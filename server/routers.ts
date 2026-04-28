@@ -121,24 +121,47 @@ const documentsRouter = router({
 
         console.log("[extractQuestions] doc.id:", doc.id, "doc.type:", doc.type, "storageKey:", doc.storageKey);
 
-        // Detect if the document is a Word file (.docx)
-        const isDocx = doc.storageKey.toLowerCase().endsWith(".docx") || doc.name.toLowerCase().endsWith(".docx");
+        // Detect document format
+        const keyLower = (doc.storageKey || doc.name || "").toLowerCase();
+        const isDocx = keyLower.endsWith(".docx");
+        const isDoc  = keyLower.endsWith(".doc");
+        const isOdf  = keyLower.endsWith(".odf") || keyLower.endsWith(".odt");
 
         // Build fileContent for the LLM
-        // For .docx: convert to plain text with mammoth, then send as text message
+        // For Word/ODF: convert to plain text, then send as text message
         // For .pdf: send as file_url
         let fileContent: Array<{ type: "file_url"; file_url: { url: string; mime_type: "application/pdf" } } | { type: "text"; text: string }>;
 
         if (isDocx) {
-          // Fetch the docx bytes from storage and convert to plain text
+          // .docx → mammoth
           const { default: mammoth } = await import("mammoth");
           const signedUrl = await storageGetSignedUrl(doc.storageKey);
           const fetchRes = await fetch(signedUrl);
           const arrayBuffer = await fetchRes.arrayBuffer();
           const { value: docxText } = await mammoth.extractRawText({ buffer: Buffer.from(arrayBuffer) });
           fileContent = [{ type: "text", text: docxText }];
+        } else if (isDoc) {
+          // .doc (Word 97-2003) → word-extractor
+          const WordExtractor = (await import("word-extractor")).default;
+          const extractor = new WordExtractor();
+          const signedUrl = await storageGetSignedUrl(doc.storageKey);
+          const fetchRes = await fetch(signedUrl);
+          const arrayBuffer = await fetchRes.arrayBuffer();
+          const extracted = await extractor.extract(Buffer.from(arrayBuffer));
+          fileContent = [{ type: "text", text: extracted.getBody() }];
+        } else if (isOdf) {
+          // .odf/.odt → JSZip + parse content.xml
+          const JSZip = (await import("jszip")).default;
+          const signedUrl = await storageGetSignedUrl(doc.storageKey);
+          const fetchRes = await fetch(signedUrl);
+          const arrayBuffer = await fetchRes.arrayBuffer();
+          const zip = await JSZip.loadAsync(Buffer.from(arrayBuffer));
+          const contentXml = await zip.file("content.xml")?.async("string") ?? "";
+          // Strip XML tags to get plain text
+          const odfText = contentXml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+          fileContent = [{ type: "text", text: odfText }];
         } else {
-          // Get a proper signed URL so the LLM can access the PDF
+          // .pdf → send as file_url
           const signedUrl = await storageGetSignedUrl(doc.storageKey);
           fileContent = [
             {
