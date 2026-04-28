@@ -154,3 +154,16 @@
 - [x] Backend: endpoint `app.resetAll` protegido
 - [x] Dashboard: dos opciones diferenciadas — "Limpiar datos de práctica" (conserva temas/docs) y "Empezar desde cero" (borra absolutamente todo)
 - [x] Ambas opciones con modal de confirmación individual
+
+## Fase 17: Extracción de grupo y número de tema desde convocatoria
+
+- [ ] Revisar el prompt de extracción de temas desde convocatoria
+- [ ] Mejorar el prompt para que la IA detecte grupo (General/Específico) y topicNumber de cada tema
+- [ ] Actualizar createTopic para guardar group y topicNumber al crear temas desde convocatoria
+
+## Fase 17: Extracción de grupo y número de tema desde convocatoria
+
+- [x] Revisar el prompt de extracción de temas desde convocatoria en routers.ts
+- [x] Mejorar el prompt para que la IA detecte grupo (General/Específico) y topicNumber de cada tema
+- [x] Actualizar ensureTopic para guardar group y topicNumber al crear/actualizar temas desde convocatoria
+- [x] JSON schema del LLM actualizado para incluir group y topicNumber como campos requeridos

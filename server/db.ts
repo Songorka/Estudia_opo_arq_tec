@@ -158,7 +158,13 @@ export async function createTopic(topic: InsertTopic) {
   return result;
 }
 
-export async function ensureTopic(userId: number, name: string, description?: string): Promise<number> {
+export async function ensureTopic(
+  userId: number,
+  name: string,
+  description?: string,
+  group?: string | null,
+  topicNumber?: number | null,
+): Promise<number> {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   const existing = await db
@@ -166,8 +172,26 @@ export async function ensureTopic(userId: number, name: string, description?: st
     .from(topics)
     .where(and(eq(topics.userId, userId), eq(topics.name, name)))
     .limit(1);
-  if (existing.length > 0) return existing[0].id;
-  const [result] = await db.insert(topics).values({ userId, name, ...(description ? { description } : {}) });
+  if (existing.length > 0) {
+    // Actualizar group y topicNumber si se proporcionan y el tema no los tiene
+    const t = existing[0];
+    if ((group && !t.group) || (topicNumber != null && t.topicNumber == null)) {
+      await db.update(topics)
+        .set({
+          ...(group && !t.group ? { group } : {}),
+          ...(topicNumber != null && t.topicNumber == null ? { topicNumber } : {}),
+        })
+        .where(eq(topics.id, t.id));
+    }
+    return t.id;
+  }
+  const [result] = await db.insert(topics).values({
+    userId,
+    name,
+    ...(description ? { description } : {}),
+    ...(group ? { group } : {}),
+    ...(topicNumber != null ? { topicNumber } : {}),
+  });
   return (result as { insertId: number }).insertId;
 }
 

@@ -160,13 +160,21 @@ const documentsRouter = router({
                   role: "system",
                   content: `Eres un experto en oposiciones de Arquitecto Técnico en España.
 Analiza esta convocatoria oficial y extrae la lista completa de temas del temario.
+
+MUY IMPORTANTE:
+- Detecta si hay bloques diferenciados (ej: "Temario General", "Temario Específico", "Bloque A", "Parte I", etc.) y asigna el campo "group" con el nombre del bloque al que pertenece cada tema.
+- Extrae el número de tema tal como aparece en el documento (ej: si dice "Tema 1", "Tema 2"... el campo "topicNumber" será 1, 2, etc.).
+- El campo "name" debe contener SOLO el título del tema, sin el número (ej: "Derecho Administrativo" en lugar de "Tema 1. Derecho Administrativo").
+- Si no hay bloques diferenciados, deja "group" como null.
+- Si no hay numeración explícita, deja "topicNumber" como null.
+
 Devuelve ÚnicAMENTE un JSON válido con este esquema:
 {
   "topics": [
-    { "name": "nombre del tema", "description": "descripción breve del contenido" }
+    { "name": "nombre del tema sin número", "description": "descripción breve", "group": "General" o "Específico" o null, "topicNumber": 1 o null }
   ]
 }
-Extrae TODOS los temas que aparezcan en el programa o temario oficial. Normaliza los nombres (sin números de tema, solo el nombre del bloque).`,
+Extrae TODOS los temas que aparezcan en el programa o temario oficial.`,
                 },
                 { role: "user", content: fileContent },
               ],
@@ -185,8 +193,10 @@ Extrae TODOS los temas que aparezcan en el programa o temario oficial. Normaliza
                           properties: {
                             name: { type: "string" },
                             description: { type: "string" },
+                            group: { type: ["string", "null"] },
+                            topicNumber: { type: ["integer", "null"] },
                           },
-                          required: ["name", "description"],
+                          required: ["name", "description", "group", "topicNumber"],
                           additionalProperties: false,
                         },
                       },
@@ -215,12 +225,18 @@ Extrae TODOS los temas que aparezcan en el programa o temario oficial. Normaliza
           if (rawContent) {
             try {
               const contentStr = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
-              const parsedTopics = JSON.parse(contentStr) as { topics: Array<{ name: string; description: string }> };
+              const parsedTopics = JSON.parse(contentStr) as { topics: Array<{ name: string; description: string; group?: string | null; topicNumber?: number | null }> };
               console.log("[extractQuestions] Topics parsed:", parsedTopics.topics?.length);
               
               if (Array.isArray(parsedTopics.topics)) {
                 for (const t of parsedTopics.topics) {
-                  if (t.name) await ensureTopic(ctx.user.id, t.name, t.description);
+                  if (t.name) await ensureTopic(
+                    ctx.user.id,
+                    t.name,
+                    t.description,
+                    t.group ?? null,
+                    t.topicNumber ?? null,
+                  );
                 }
               }
             } catch (parseErr) {
