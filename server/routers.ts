@@ -167,7 +167,7 @@ INSTRUCCIONES DETALLADAS PARA IDENTIFICAR BLOQUES Y NUMERACIÓN:
 
 2. NUMERACIÓN: Los temas aparecen numerados con formato "1.", "2.", "3." etc. al inicio de cada párrafo. Extrae ese número como "topicNumber" (entero). La numeración se reinicia en 1 al comenzar el Temario Específico.
 
-3. NOMBRE: El campo "name" debe ser solo el título principal del tema (primera frase o cláusula antes del primer punto o coma larga), sin el número.
+3. NOMBRE: El campo "name" debe ser MUY CORTO (máximo 120 caracteres). Usa solo el título principal del tema: la primera frase o cláusula antes del primer punto o coma larga, sin el número. Si el título es muy largo, resume la idea principal en pocas palabras. NUNCA incluyas el texto completo del tema en el campo name.
 
 4. DESCRIPCIÓN: Resumen breve del contenido del tema.
 

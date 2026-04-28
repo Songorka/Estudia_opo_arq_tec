@@ -167,6 +167,9 @@ export async function ensureTopic(
 ): Promise<number> {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
+  // Truncar name defensivamente al límite de la columna varchar(255)
+  const safeName = name.length > 250 ? name.substring(0, 247) + "..." : name;
+  name = safeName;
   const existing = await db
     .select()
     .from(topics)
