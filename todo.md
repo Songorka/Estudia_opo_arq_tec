@@ -157,9 +157,9 @@
 
 ## Fase 17: Extracción de grupo y número de tema desde convocatoria
 
-- [ ] Revisar el prompt de extracción de temas desde convocatoria
-- [ ] Mejorar el prompt para que la IA detecte grupo (General/Específico) y topicNumber de cada tema
-- [ ] Actualizar createTopic para guardar group y topicNumber al crear temas desde convocatoria
+- [x] Revisar el prompt de extracción de temas desde convocatoria
+- [x] Mejorar el prompt para que la IA detecte grupo (General/Específico) y topicNumber de cada tema
+- [x] Actualizar createTopic para guardar group y topicNumber al crear temas desde convocatoria
 
 ## Fase 17: Extracción de grupo y número de tema desde convocatoria
 

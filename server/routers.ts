@@ -161,12 +161,17 @@ const documentsRouter = router({
                   content: `Eres un experto en oposiciones de Arquitecto Técnico en España.
 Analiza esta convocatoria oficial y extrae la lista completa de temas del temario.
 
-MUY IMPORTANTE:
-- Detecta si hay bloques diferenciados (ej: "Temario General", "Temario Específico", "Bloque A", "Parte I", etc.) y asigna el campo "group" con el nombre del bloque al que pertenece cada tema.
-- Extrae el número de tema tal como aparece en el documento (ej: si dice "Tema 1", "Tema 2"... el campo "topicNumber" será 1, 2, etc.).
-- El campo "name" debe contener SOLO el título del tema, sin el número (ej: "Derecho Administrativo" en lugar de "Tema 1. Derecho Administrativo").
-- Si no hay bloques diferenciados, deja "group" como null.
-- Si no hay numeración explícita, deja "topicNumber" como null.
+INSTRUCCIONES DETALLADAS PARA IDENTIFICAR BLOQUES Y NUMERACIÓN:
+
+1. IDENTIFICAR BLOQUES: Busca encabezados como "Temario General", "Temario Específico", "Bloque A", "Parte I", etc. En convocatorias españolas de oposiciones es muy común tener un bloque "Temario General" (temas de derecho administrativo, función pública, etc.) y un bloque "Temario Específico" (temas técnicos de la especialidad). ATENCIÓN: en algunos PDFs el encabezado del bloque aparece como pie de página DESPUÉS de los temas, no antes. Debes inferir a qué bloque pertenece cada tema por su posición en el texto y por el contenido (temas jurídico-administrativos = General; temas técnicos de arquitectura/urbanismo = Específico).
+
+2. NUMERACIÓN: Los temas aparecen numerados con formato "1.", "2.", "3." etc. al inicio de cada párrafo. Extrae ese número como "topicNumber" (entero). La numeración se reinicia en 1 al comenzar el Temario Específico.
+
+3. NOMBRE: El campo "name" debe ser solo el título principal del tema (primera frase o cláusula antes del primer punto o coma larga), sin el número.
+
+4. DESCRIPCIÓN: Resumen breve del contenido del tema.
+
+5. GROUP: Usa exactamente "General" o "Específico" (con tilde) según corresponda. Si no hay bloques diferenciados, usa null.
 
 Devuelve ÚnicAMENTE un JSON válido con este esquema:
 {
@@ -174,7 +179,7 @@ Devuelve ÚnicAMENTE un JSON válido con este esquema:
     { "name": "nombre del tema sin número", "description": "descripción breve", "group": "General" o "Específico" o null, "topicNumber": 1 o null }
   ]
 }
-Extrae TODOS los temas que aparezcan en el programa o temario oficial.`,
+Extrae TODOS los temas numerados que aparezcan en el programa o temario oficial.`,
                 },
                 { role: "user", content: fileContent },
               ],
