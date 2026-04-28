@@ -795,3 +795,18 @@ export async function clearAppData(userId: number) {
   await db.delete(userProgress).where(eq(userProgress.userId, userId));
   await db.delete(questions).where(eq(questions.userId, userId));
 }
+
+export async function resetAllData(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+
+  // Borrar en orden para respetar dependencias (de hijos a padres)
+  await db.delete(examAnswers).where(eq(examAnswers.userId, userId));
+  await db.delete(sessionAnswers).where(eq(sessionAnswers.userId, userId));
+  await db.delete(examSessions).where(eq(examSessions.userId, userId));
+  await db.delete(practiceSessions).where(eq(practiceSessions.userId, userId));
+  await db.delete(userProgress).where(eq(userProgress.userId, userId));
+  await db.delete(questions).where(eq(questions.userId, userId));
+  await db.delete(documents).where(eq(documents.userId, userId));
+  await db.delete(topics).where(eq(topics.userId, userId));
+}

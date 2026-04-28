@@ -43,6 +43,7 @@ import {
   setQuestionReviewFlag,
   setTopicHidden,
   clearAppData,
+  resetAllData,
 } from "./db";
 
 // ── Documents router ───────────────────────────────────────────────
@@ -1113,6 +1114,8 @@ export const appRouter = router({
   app: router({
     clearData: protectedProcedure
       .mutation(({ ctx }) => clearAppData(ctx.user.id)),
+    resetAll: protectedProcedure
+      .mutation(({ ctx }) => resetAllData(ctx.user.id)),
   }),
 });
 

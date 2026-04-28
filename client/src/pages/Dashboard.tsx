@@ -67,13 +67,26 @@ export default function Dashboard() {
 
   const clearDataMut = trpc.app.clearData.useMutation({
     onSuccess: () => {
-      toast.success("Aplicación limpiada. Todos los datos de práctica y preguntas han sido eliminados.");
+      toast.success("Datos de práctica eliminados. Temas y documentos conservados.");
       utils.stats.overview.invalidate();
       utils.stats.progress.invalidate();
       utils.stats.evolution.invalidate();
       utils.questions.list.invalidate();
     },
     onError: (err) => toast.error(`Error al limpiar: ${err.message}`),
+  });
+
+  const resetAllMut = trpc.app.resetAll.useMutation({
+    onSuccess: () => {
+      toast.success("Aplicación reseteada completamente. Todo ha sido eliminado.");
+      utils.stats.overview.invalidate();
+      utils.stats.progress.invalidate();
+      utils.stats.evolution.invalidate();
+      utils.questions.list.invalidate();
+      utils.topics.list.invalidate();
+      utils.documents.list.invalidate();
+    },
+    onError: (err) => toast.error(`Error al resetear: ${err.message}`),
   });
 
   const { data: stats } = trpc.stats.overview.useQuery(rangeParams);
@@ -284,40 +297,74 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Limpiar aplicación */}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <div
-                  className="border border-border bg-card p-4 cursor-pointer"
-                  style={{ borderColor: "oklch(0.82 0 0)" }}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <Trash2 size={13} style={{ color: "oklch(0.55 0 0)" }} />
-                    <span className="label-caps" style={{ color: "oklch(0.40 0 0)" }}>Limpiar aplicación</span>
-                  </div>
-                  <div className="label-caps-sm" style={{ color: "oklch(0.60 0 0)" }}>
-                    Elimina preguntas, sesiones y progreso. Los temas y documentos se conservan.
-                  </div>
+            {/* Opciones de limpieza */}
+            <div className="border border-border bg-card">
+              <div className="px-4 py-3 border-b border-border" style={{ background: "oklch(0.97 0 0)" }}>
+                <div className="flex items-center gap-2">
+                  <Trash2 size={13} style={{ color: "oklch(0.50 0 0)" }} />
+                  <span className="label-caps" style={{ color: "oklch(0.35 0 0)" }}>Zona de reinicio</span>
                 </div>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>¿Limpiar todos los datos?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta acción eliminará permanentemente todas las preguntas del banco, sesiones de práctica, exámenes realizados y datos de progreso. Los temas y documentos subidos se conservarán. Esta acción no se puede deshacer.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => clearDataMut.mutate()}
-                    style={{ background: "oklch(0.15 0 0)", color: "oklch(0.97 0 0)" }}
-                  >
-                    {clearDataMut.isPending ? "Limpiando..." : "Sí, limpiar todo"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              </div>
+              <div className="divide-y divide-border">
+                {/* Limpiar práctica */}
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <div className="px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors">
+                      <div className="label-caps mb-0.5" style={{ color: "oklch(0.25 0 0)" }}>Limpiar datos de práctica</div>
+                      <div className="label-caps-sm" style={{ color: "oklch(0.60 0 0)" }}>
+                        Borra preguntas, sesiones y progreso. Conserva temas y documentos.
+                      </div>
+                    </div>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Limpiar datos de práctica?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Se eliminarán permanentemente todas las preguntas del banco, sesiones de práctica, exámenes realizados y datos de progreso. Los temas y documentos subidos se conservarán. Esta acción no se puede deshacer.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => clearDataMut.mutate()}
+                        style={{ background: "oklch(0.15 0 0)", color: "oklch(0.97 0 0)" }}
+                      >
+                        {clearDataMut.isPending ? "Limpiando..." : "Sí, limpiar práctica"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
+                {/* Resetear todo */}
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <div className="px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors">
+                      <div className="label-caps mb-0.5" style={{ color: "oklch(0.20 0 0)" }}>Empezar desde cero</div>
+                      <div className="label-caps-sm" style={{ color: "oklch(0.60 0 0)" }}>
+                        Borra absolutamente todo: temas, documentos, preguntas y progreso.
+                      </div>
+                    </div>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Empezar completamente desde cero?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta acción eliminará permanentemente todos los temas, documentos subidos, preguntas del banco, sesiones de práctica, exámenes y datos de progreso. La aplicación quedará como nueva. Esta acción no se puede deshacer.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => resetAllMut.mutate()}
+                        style={{ background: "oklch(0.08 0 0)", color: "oklch(0.97 0 0)", border: "2px solid oklch(0.08 0 0)" }}
+                      >
+                        {resetAllMut.isPending ? "Reseteando..." : "Sí, borrar todo"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </div>
 
             {/* GitHub sync status */}
             <div className="border border-border bg-card">

@@ -138,12 +138,19 @@
 
 ## Fase 15: Limpiar app + Ocultar temas + IA distinguida + Word
 
-- [ ] Campo `hidden` (boolean) en tabla topics + migración BD
-- [ ] Toggle ocultar/mostrar en Temario.tsx (sin borrar el tema)
-- [ ] Filtrar temas ocultos en TopicSelector, Banco y Modo Práctica
-- [ ] Endpoint `clearApp`: borrar preguntas, sesiones, progreso y respuestas del usuario (no temas)
-- [ ] Botón "Limpiar aplicación" en Dashboard con confirmación doble (modal)
-- [ ] Practica.tsx: distinguir fuente IA en dos opciones: "IA desde temas subidos" vs "IA desde conocimiento externo"
-- [ ] Backend: campo `aiSource` en startSession para diferenciar los dos modos IA
-- [ ] Soporte Word (.docx) en subida de documentos tipo tema
-- [ ] Backend: conversión .docx a texto antes de enviar a la IA para extracción de preguntas
+- [x] Campo `hidden` (boolean) en tabla topics + migración BD
+- [x] Toggle ocultar/mostrar en Temario.tsx (sin borrar el tema)
+- [x] Filtrar temas ocultos en TopicSelector, Banco y Modo Práctica
+- [x] Endpoint `clearApp`: borrar preguntas, sesiones, progreso y respuestas del usuario (no temas)
+- [x] Botón "Limpiar aplicación" en Dashboard con confirmación doble (modal)
+- [x] Practica.tsx: distinguir fuente IA en cuatro opciones: Todas / Exámenes reales / IA-temas subidos / IA-conocimiento externo
+- [x] Backend: filtro ai_topics y ai_external en getRandomQuestions
+- [x] Soporte Word (.docx) en subida de documentos tipo tema
+- [x] Backend: conversión .docx a texto con mammoth antes de enviar a la IA para extracción de preguntas
+
+## Fase 16: Resetear todo (borrar temas y documentos también)
+
+- [x] Backend: función `resetAllData` que borra topics, documents, questions, sessions, progress, examSessions, examAnswers del usuario
+- [x] Backend: endpoint `app.resetAll` protegido
+- [x] Dashboard: dos opciones diferenciadas — "Limpiar datos de práctica" (conserva temas/docs) y "Empezar desde cero" (borra absolutamente todo)
+- [x] Ambas opciones con modal de confirmación individual
